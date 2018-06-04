@@ -36,7 +36,7 @@ def download(dir):
     except OSError:
         print("Could not create directory. Does it already exist?")
         sys.exit(1)
-    """
+
     print("Downloading precinct map and election data (Harvard Dataverse)...")
     dump_zip(PA_VTD_MAP_ZIP, VTD_MAP_DIR)
 
@@ -48,7 +48,6 @@ def download(dir):
 
     print("\nDownloading county map (U.S. Census, as of 2013)...")
     dump_zip(PA_COUNTIES_MAP_ZIP, COUNTY_MAP_DIR)
-    """
 
     """
     Census data is challenging to parse, so it's convenient to build a CSV with demographic data indexed by geographical region.
