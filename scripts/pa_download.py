@@ -31,7 +31,7 @@ from glob import glob
 @click.argument('dir')
 def download(dir):
     try:
-        #os.makedirs(dir)
+        os.makedirs(dir)
         os.chdir(dir)
     except OSError:
         print("Could not create directory. Does it already exist?")
