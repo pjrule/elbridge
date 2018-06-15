@@ -1,0 +1,23 @@
+### All data sources used for redistricting ###
+# Downloading these files presumably constitutes agreement to Harvard Dataverse's terms of service.
+# License:
+#   Harvard Election Data Archive by Stephen Ansolabehere and Jonathan Rodden is licensed under a Creative Commons Attribution 3.0 Unported License.
+# Government data (the files from Census.gov) is in the public domain.
+
+PA:
+  sources:
+    vtd_map: https://dataverse.harvard.edu/api/access/datafiles/2301829,2301833,2301830,2301834,2301827,2301831,2301835,2301828?gbrecs=true
+    demographics: ftp://ftp2.census.gov/census_2010/01-Redistricting_File--PL_94-171/Pennsylvania/pa2010.pl.zip
+    county_map: http://www2.census.gov/geo/tiger/TIGER2013/COUSUB/tl_2013_42_cousub.zip
+    county_names: https://www2.census.gov/geo/docs/reference/codes/files/st42_pa_cou.txt
+    openelections: # supplementary for 2008-2010, sole source for 2012-2016
+      2008: https://raw.githubusercontent.com/openelections/openelections-data-pa/master/2008/20081104__pa__general__precinct.csv
+      2010: https://raw.githubusercontent.com/openelections/openelections-data-pa/master/2010/20101102__pa__general__precinct.csv
+      2012: https://raw.githubusercontent.com/openelections/openelections-data-pa/master/2012/20121106__pa__general__precinct.csv
+      2014: https://raw.githubusercontent.com/openelections/openelections-data-pa/master/2014/20141104__pa__general__precinct.csv
+      2016: https://raw.githubusercontent.com/openelections/openelections-data-pa/master/2016/20161108__pa__general__precinct.csv
+  filenames:
+    vtd_map: pa_final.shp
+    county_map: tl_2013_42_cousub.shp
+    demographics_02: pa000022010.pl
+    demographics_geo: pageo2010.pl  
