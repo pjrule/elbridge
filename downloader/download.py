@@ -40,7 +40,7 @@ def download(state, dir):
         sources = all_data['PA']['sources']
         filenames = all_data['PA']['filenames']
 
-        """
+       
         print('Downloading raw files...')
         new_dir_and_cd(dir)
         for s in ['vtd_map', 'demographics', 'county_map']:
@@ -49,19 +49,15 @@ def download(state, dir):
         os.mkdir('openelections')
         for year in sources['openelections']:
             wget.download(sources['openelections'][year], out=os.path.join('openelections', '%s_%d.csv' % (state, year)))
-        """
         filenames['openelections'] = {}
         for year in range(2008, 2018):
             filenames['openelections'][year] = '%s_%d.csv' % (state, year)
-        os.chdir(dir)
 
-        """
         print('\nProcessing demographic data...')
         vtd_map = os.path.join(DIRECTORIES['vtd_map'], filenames['vtd_map'])
         demographics_02 = os.path.join(DIRECTORIES['demographics'], filenames['demographics_02'])
         demographics_geo = os.path.join(DIRECTORIES['demographics'], filenames['demographics_geo'])
         convert.dataverse_to_demographics(vtd_map, demographics_geo, demographics_02, FILENAMES['demographics'])
-        """
 
         print("Fusing OpenElections and Harvard Dataverse voting data...")
         """
