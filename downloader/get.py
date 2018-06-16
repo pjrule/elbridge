@@ -34,22 +34,27 @@ import pandas as pd
 @click.command()
 @click.argument('state')
 @click.argument('dir')
-def download(state, dir):
+@click.option('--no-download', is_flag=True)
+def download(state, dir, no_download):
     all_data = yaml.load(open('data.yml'))
     if state == "PA":
         sources = all_data['PA']['sources']
         filenames = all_data['PA']['filenames']
 
-       
-        print('Downloading raw files...')
-        new_dir_and_cd(dir)
-        for s in ['vtd_map', 'demographics', 'county_map']:
-            dump_zip(sources[s], DIRECTORIES[s])
-        wget.download(sources['county_names'], FILENAMES['county_names'])
-        os.mkdir('openelections')
-        for year in sources['openelections']:
-            wget.download(sources['openelections'][year], out=os.path.join('openelections', '%s_%d.csv' % (state, year)))
-        filenames['openelections'] = {}
+        if no_download:
+            print("Skipping download...")
+            os.chdir(dir)
+        else:
+            print('Downloading raw files...')
+            new_dir_and_cd(dir)
+            for s in ['vtd_map', 'demographics', 'county_map']:
+                dump_zip(sources[s], DIRECTORIES[s])
+            wget.download(sources['county_names'], FILENAMES['county_names'])
+            os.mkdir('openelections')
+            for year in sources['openelections']:
+                wget.download(sources['openelections'][year], out=os.path.join('openelections', '%s_%d.csv' % (state, year)))
+           
+        filenames['openelections'] = {}    
         for year in range(2008, 2018):
             filenames['openelections'][year] = '%s_%d.csv' % (state, year)
 
@@ -70,8 +75,8 @@ def download(state, dir):
         PA_STATE_PREFIX = '42'
         harvard_file = os.path.join(DIRECTORIES['vtd_map'], filenames['vtd_map'])  
         open_files = {}
-        open_files[2008] = os.path.join(DIRECTORIES['openelections'], filenames['openelections'][2008])
-        open_files[2010] = os.path.join(DIRECTORIES['openelections'], filenames['openelections'][2010])
+        for year in [2008, 2010, 2014]:
+            open_files[year] = os.path.join(DIRECTORIES['openelections'], filenames['openelections'][year])
         eight_conv, harvard_df, _ = convert.map_open_harvard(harvard_file, open_files[2008], FILENAMES['county_names'], "USCDV2008", "USCRV2008", "GEOID10", PA_STATE_PREFIX)
         ten_conv, _, _ = convert.map_open_harvard(harvard_file, open_files[2010], FILENAMES['county_names'], "USCDV2010", "USCRV2010", "GEOID10", PA_STATE_PREFIX)
         open_to_harvard_union = {**eight_conv, **ten_conv}
@@ -96,7 +101,7 @@ def download(state, dir):
         for year in range(2012, 2018, 2):
             not_found = 0
             open_df_file = os.path.join(DIRECTORIES['openelections'], filenames['openelections'][year])
-            open_df = convert.load_house_data(open_df_file, FILENAMES['county_names'], 'dv', 'rv', 'geo_id', PA_STATE_PREFIX)
+            open_df = convert.load_openelections_data(open_df_file, FILENAMES['county_names'], 'dv', 'rv', 'geo_id', PA_STATE_PREFIX)
             for row in open_df.itertuples():
                 try:
                     harvard_geo_id = open_to_harvard_union[getattr(row, 'geo_id')]

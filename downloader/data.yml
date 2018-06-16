@@ -11,6 +11,7 @@ PA:
     county_map: http://www2.census.gov/geo/tiger/TIGER2013/COUSUB/tl_2013_42_cousub.zip
     county_names: https://www2.census.gov/geo/docs/reference/codes/files/st42_pa_cou.txt
     openelections: # supplementary for 2008-2010, sole source for 2012-2016
+      2006: https://raw.githubusercontent.com/openelections/openelections-data-pa/master/2006/20061107__pa__general__precinct.csv
       2008: https://raw.githubusercontent.com/openelections/openelections-data-pa/master/2008/20081104__pa__general__precinct.csv
       2010: https://raw.githubusercontent.com/openelections/openelections-data-pa/master/2010/20101102__pa__general__precinct.csv
       2012: https://raw.githubusercontent.com/openelections/openelections-data-pa/master/2012/20121106__pa__general__precinct.csv
