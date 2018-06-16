@@ -27,6 +27,7 @@ import os
 import sys
 import yaml
 from zipfile import ZipFile
+from shutil import rmtree
 import convert
 import numpy as np
 import pandas as pd
@@ -35,7 +36,9 @@ import pandas as pd
 @click.argument('state')
 @click.argument('dir')
 @click.option('--no-download', is_flag=True)
-def download(state, dir, no_download):
+@click.option('--keep-census', is_flag=True)
+@click.option('--keep-openelections', is_flag=True)
+def download(state, dir, no_download, keep_census, keep_openelections):
     all_data = yaml.load(open('data.yml'))
     if state == "PA":
         sources = all_data['PA']['sources']
@@ -63,6 +66,8 @@ def download(state, dir, no_download):
         demographics_02 = os.path.join(DIRECTORIES['demographics'], filenames['demographics_02'])
         demographics_geo = os.path.join(DIRECTORIES['demographics'], filenames['demographics_geo'])
         convert.dataverse_to_demographics(vtd_map, demographics_geo, demographics_02, FILENAMES['demographics'])
+        if not no_download and not keep_census:
+            rmtree(DIRECTORIES['demographics'])
 
         print("Fusing OpenElections and Harvard Dataverse voting data...")
         """
@@ -75,7 +80,7 @@ def download(state, dir, no_download):
         PA_STATE_PREFIX = '42'
         harvard_file = os.path.join(DIRECTORIES['vtd_map'], filenames['vtd_map'])  
         open_files = {}
-        for year in [2008, 2010, 2014]:
+        for year in [2008, 2010]:
             open_files[year] = os.path.join(DIRECTORIES['openelections'], filenames['openelections'][year])
         eight_conv, harvard_df, _ = convert.map_open_harvard(harvard_file, open_files[2008], FILENAMES['county_names'], "USCDV2008", "USCRV2008", "GEOID10", PA_STATE_PREFIX)
         ten_conv, _, _ = convert.map_open_harvard(harvard_file, open_files[2010], FILENAMES['county_names'], "USCDV2010", "USCRV2010", "GEOID10", PA_STATE_PREFIX)
@@ -110,6 +115,9 @@ def download(state, dir, no_download):
                 except KeyError:
                     not_found += 1
             print("\tWarning: %d precincts in OpenElections data (%d) not found in Harvard Dataverse data." % (not_found, year))
+        
+        if not no_download and not keep_openelections:
+            rmtree(DIRECTORIES['openelections'])
 
         pd.DataFrame(vote_cols).to_csv(FILENAMES['elections'])  
 
