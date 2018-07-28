@@ -66,7 +66,7 @@ def fuse_MD(filenames, sources):
             print("\tWarning: %d precincts in OpenElections data (%d) not found in Harvard Dataverse data." % (not_found, year))
     # 2016: Maryland.gov
     not_found = 0
-    for row in md_gov[year].itertuples():
+    for row in md_gov[2016].itertuples():
         id = getattr(row, 'geo_id')
         dv = getattr(row, 'dv')
         rv = getattr(row, 'rv')
