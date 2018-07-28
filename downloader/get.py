@@ -9,11 +9,14 @@ Government data (the files from Census.gov) is in the public domain.
 """
 
 # Default directory names/filenames (per state)
+# These are 1:1 mappings by default but are defined globally for flexibility's sake.
 DIRECTORIES = {
     "vtd_map": "vtd_map",
     "demographics": "pl94_171",
     "county_map": "county_map",
-    "openelections": "openelections"
+    "openelections": "openelections",
+    "ward_maps": "ward_maps",
+    "md_gov": "md_gov"
 }
 FILENAMES = {
     "demographics": "vtd_demographics.csv",
@@ -21,16 +24,19 @@ FILENAMES = {
     "county_names": "county_names.csv",
 }
 
-import wget # recommended: https://stackoverflow.com/questions/13137817/how-to-download-image-using-requests
 import click
 import os
 import sys
 import yaml
-from zipfile import ZipFile
-from shutil import rmtree
 import convert
 import numpy as np
 import pandas as pd
+import geopandas as gpd
+import shapefile
+import fuse
+from zipfile import ZipFile
+from shutil import rmtree, move
+from urllib.request import urlretrieve
 
 @click.command()
 @click.argument('state')
@@ -40,86 +46,93 @@ import pandas as pd
 @click.option('--keep-openelections', is_flag=True)
 def download(state, dir, no_download, keep_census, keep_openelections):
     all_data = yaml.load(open('data.yml'))
-    if state == "PA":
-        sources = all_data['PA']['sources']
-        filenames = all_data['PA']['filenames']
+    sources = all_data[state]['sources']
+    filenames = all_data[state]['filenames']
 
-        if no_download:
-            print("Skipping download...")
-            os.chdir(dir)
-        else:
-            print('Downloading raw files...')
-            new_dir_and_cd(dir)
-            for s in ['vtd_map', 'demographics', 'county_map']:
-                dump_zip(sources[s], DIRECTORIES[s])
-            wget.download(sources['county_names'], FILENAMES['county_names'])
+    if no_download:
+        print("Skipping download...")
+        os.chdir(dir)
+    else:
+        print('Downloading raw files...')
+        new_dir_and_cd(dir)
+        for s in ['vtd_map', 'demographics', 'ward_maps']:
+            if s in sources:
+                if type(sources[s]) == str:
+                    dump_zip(sources[s], DIRECTORIES[s])
+                else:
+                    os.mkdir(s)
+                    for year in sources[s]:
+                        dump_zip(sources[s][year], os.path.join(s, str(year)))
+                        os.chdir('..')
+
+        if 'county_names' in sources:
+            dl(sources['county_names'], FILENAMES['county_names'])
+
+        if 'openelections' in sources:
             os.mkdir('openelections')
             for year in sources['openelections']:
-                wget.download(sources['openelections'][year], out=os.path.join('openelections', '%s_%d.csv' % (state, year)))
-           
-        filenames['openelections'] = {}    
-        for year in range(2008, 2018):
-            filenames['openelections'][year] = '%s_%d.csv' % (state, year)
+                dl(sources['openelections'][year], os.path.join('openelections', '%s_%d.csv' % (state, year)))
+
+        # Due to the way Harvard Dataverse's download API works, some ZIP files containing shapefiles are stored within parent zipfiles.
+        # Thus, it is necessary to unzip not one but *two* ZIPs.
+        if 'vtd_map_inner_zip' in filenames:
+            os.chdir(DIRECTORIES['vtd_map'])
+            ZipFile(filenames['vtd_map_inner_zip']).extractall('.')
+            if 'vtd_map_inner_zip_dir' in filenames:
+                for f in os.listdir(filenames['vtd_map_inner_zip_dir']):
+                    move(os.path.join(filenames['vtd_map_inner_zip_dir'], f), f)
+                rmtree(filenames['vtd_map_inner_zip_dir'])
+            os.remove(filenames['vtd_map_inner_zip'])
+            os.chdir('..')
+
+        # Some Harvard Dataverse shapefile packages lack .shx index files. 
+        # These are necessary for GeoPandas to function; thankfully, they can be generated trivially.
+        if 'vtd_map' in sources:
+            shp_name = os.path.join(DIRECTORIES['vtd_map'], filenames['vtd_map'])
+            if not os.path.isfile(shp_name.replace('.shp', '.shx')):
+                print("\nGenerating geospatial index...")
+                # lifted from http://geospatialpython.com/2011/11/generating-shapefile-shx-files.html
+                # doesn't have a license, but I think I think fair use applies here—this is just loading files and rewriting them
+                # thus, anyone with reasonable knowledge of the art of pyshp could probably have figured this out
+                shp = open(shp_name, 'rb')
+                dbf = open(shp_name.replace('.shp', '.dbf'), 'rb')
+                r = shapefile.Reader(shp=shp, dbf=dbf, shx=None)
+                w = shapefile.Writer(r.shapeType)
+                w._shapes = r.shapes()
+                w.records = r.records()
+                w.fields = list(r.fields)
+                w.save(shp_name.replace('.shp', ''))
 
         print('\nProcessing demographic data...')
-        vtd_map = os.path.join(DIRECTORIES['vtd_map'], filenames['vtd_map'])
-        demographics_02 = os.path.join(DIRECTORIES['demographics'], filenames['demographics_02'])
-        demographics_geo = os.path.join(DIRECTORIES['demographics'], filenames['demographics_geo'])
-        convert.dataverse_to_demographics(vtd_map, demographics_geo, demographics_02, FILENAMES['demographics'])
-        if not no_download and not keep_census:
-            rmtree(DIRECTORIES['demographics'])
+        # For most states, demographic data is separate from geodata and needs to be fetched from the U.S. Census Bureau and aggregated.
+        if 'demographics' in sources:
+            vtd_map = os.path.join(DIRECTORIES['vtd_map'], filenames['vtd_map'])
+            demographics_02 = os.path.join(DIRECTORIES['demographics'], filenames['demographics_02'])
+            demographics_geo = os.path.join(DIRECTORIES['demographics'], filenames['demographics_geo'])
+            convert.dataverse_to_demographics(vtd_map, demographics_geo, demographics_02, FILENAMES['demographics'])
+            if not no_download and not keep_census:
+                rmtree(DIRECTORIES['demographics'])
+        # For Wisconsin, demographic data is included with the geodata.
+        elif state == 'WI':
+            convert.wi_to_demographics(os.path.join(DIRECTORIES['ward_maps'], '2020', filenames['ward_maps'][2020]), FILENAMES['demographics'])
 
-        print("Fusing OpenElections and Harvard Dataverse voting data...")
-        """
-        We want to fuse the OpenElections data with the Harvard Dataverse data while keeping the Harvard GeoID conventions.
-        That way, the data will line up with the Dataverse geodata as much as possible.
-        Sources:
-            - Dataverse voting data from 2006-2010 (preferred when overlapping; 2002-2004 data appears incomplete and doesn't matter much anyway)
-            - OpenElections voting data from 2008-2016
-        """
-        PA_STATE_PREFIX = '42'
-        harvard_file = os.path.join(DIRECTORIES['vtd_map'], filenames['vtd_map'])  
-        open_files = {}
-        for year in [2008, 2010]:
-            open_files[year] = os.path.join(DIRECTORIES['openelections'], filenames['openelections'][year])
-        eight_conv, harvard_df, _ = convert.map_open_harvard(harvard_file, open_files[2008], FILENAMES['county_names'], "USCDV2008", "USCRV2008", "GEOID10", PA_STATE_PREFIX)
-        ten_conv, _, _ = convert.map_open_harvard(harvard_file, open_files[2010], FILENAMES['county_names'], "USCDV2010", "USCRV2010", "GEOID10", PA_STATE_PREFIX)
-        open_to_harvard_union = {**eight_conv, **ten_conv}
+    """ 
+    Each state has distinct fusion/conversion steps.
+    """
+    if state == "MD":
+        if not no_download:
+            print("Downloading supplementary election data...")
+            os.mkdir('md_gov')
+            for year in sources['md_gov']:
+                dl(sources['md_gov'][year], os.path.join('md_gov', '%s_%d.csv' % (state, year)))
+        fuse.fuse_MD(filenames, sources)
+    elif state == "WI":
+        fuse.fuse_WI(filenames, sources)
+    elif state == "PA":
+        fuse.fuse_PA(filenames, sources)
 
-        vote_cols = {}
-        for year in range(2006, 2018, 2):
-            vote_cols['dv_%d' % year] = np.zeros(len(harvard_df))
-            vote_cols['rv_%d' % year] = np.zeros(len(harvard_df))
-        vote_cols['geo_id'] = []
-        
-        i = 0
-        geo_id_to_idx = {}
-        for row in harvard_df.itertuples():
-            geo_id = getattr(row, "GEOID10")
-            geo_id_to_idx[geo_id] = i
-            vote_cols['geo_id'].append(geo_id)
-            for year in range(2006, 2012, 2):
-                vote_cols['dv_%d' % year][i] = getattr(row, "USCDV%d" % year)
-                vote_cols['rv_%d' % year][i] = getattr(row, "USCRV%d" % year)
-            i += 1
-    
-        for year in range(2012, 2018, 2):
-            not_found = 0
-            open_df_file = os.path.join(DIRECTORIES['openelections'], filenames['openelections'][year])
-            open_df = convert.load_openelections_data(open_df_file, FILENAMES['county_names'], 'dv', 'rv', 'geo_id', PA_STATE_PREFIX)
-            for row in open_df.itertuples():
-                try:
-                    harvard_geo_id = open_to_harvard_union[getattr(row, 'geo_id')]
-                    vote_cols['dv_%d' % year][geo_id_to_idx[harvard_geo_id]] = getattr(row, 'dv')
-                    vote_cols['rv_%d' % year][geo_id_to_idx[harvard_geo_id]] = getattr(row, 'rv')
-                except KeyError:
-                    not_found += 1
-            print("\tWarning: %d precincts in OpenElections data (%d) not found in Harvard Dataverse data." % (not_found, year))
-        
-        if not no_download and not keep_openelections:
-            rmtree(DIRECTORIES['openelections'])
-
-        pd.DataFrame(vote_cols).to_csv(FILENAMES['elections'])  
+    if not no_download and not keep_openelections and 'openelections' in sources:
+        rmtree(DIRECTORIES['openelections'])
 
 def new_dir_and_cd(dir):
     try:
@@ -132,10 +145,14 @@ def new_dir_and_cd(dir):
 def dump_zip(url, dir):
     os.makedirs(dir)
     os.chdir(dir)
-    wget.download(url, out='data.zip')
+    dl(url, 'data.zip')
     ZipFile('data.zip').extractall('.')
     os.remove('data.zip')
     os.chdir('..')
+
+def dl(url, f):
+    print(url)
+    urlretrieve(url, f)
 
 if __name__ == "__main__":
     download()

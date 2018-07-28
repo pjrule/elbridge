@@ -3,6 +3,7 @@ Converters to wrangle precinct-level House of Representatives voting data from m
 """
 import pandas as pd
 import geopandas as gpd
+from collections import defaultdict
 
 """
 Census data is challenging to parse, so it's convenient to build a CSV with demographic data indexed by geographical region.
@@ -33,7 +34,7 @@ def dataverse_to_demographics(vtd_shapefile, demographic_geo, demographic_02, ou
     # Map VTD names to GeoIDs from Harvard Dataverse data
     geo = gpd.read_file(vtd_shapefile)
     names_to_geo_id = {}
-    for n, a, id in zip(list(geo['NAME10_1']), list(geo['ALAND10']), list(geo['GEOID10'])):
+    for n, a, id in zip(list(geo['NAME10']), list(geo['ALAND10']), list(geo['GEOID10'])):
         names_to_geo_id[(n+str(a)).replace(" Voting District", "").strip()] = id
 
     # Map Census (PL 94-171) log record numbers to names, changing names to match Harvard conventions
@@ -78,6 +79,26 @@ def dataverse_to_demographics(vtd_shapefile, demographic_geo, demographic_02, ou
                     # formatting: compute minority population total 
                     #             strip two-character state prefix from GeoID to match Harvard conventions 
                     out_f.write('%s,%d,%d\n' % (geo_id[2:], white, hispanic+(all_non_hispanic - white)))
+
+
+def wi_to_demographics(ward_shapefile, outfile):
+    """Parse demographic data included in the Wisconsin shapefile into a separate CSV consistent with dataverse_to_demographics(). 
+    Note that the statewide totals of the per-ward demographic data seems to vary from the statewide totals given by the 2010 U.S. Census.
+    See https://www.census.gov/quickfacts/fact/table/wi/PST045217.
+
+    Arguments:
+    - ward_shapefile:  Wisconsin shapefile from Wisconsin.gov/ArcGIS with ward-level voting data.
+    - outfile:        CSV to dump VTD-aggregated demographic data to.
+
+    Returns: None.
+    """
+    wards = gpd.read_file(ward_shapefile)
+    cols = {
+        "geo_id": wards['WARD_FIPS'],
+        "white": wards['WHITE'],
+        "other": wards['PERSONS'] - wards['WHITE']
+    }
+    pd.DataFrame(cols).to_csv(outfile, index=False)
 
 """
 Harvard Dataverse conveniently includes precinct-level election data from ~2002 (±2 years, depending on the state) to 2010 inline with geographical data.
@@ -166,67 +187,105 @@ def load_openelections_data(open_file, counties_file, dv_col, rv_col, geo_col, s
             if full_vtd not in dem_vote_by_vtd:
                 dem_vote_by_vtd[full_vtd] = 0
 
-    rows = {
-        geo_col:   list(dem_vote_by_vtd.keys()),
-        dv_col: list(dem_vote_by_vtd.values()),
-        rv_col: list(rep_vote_by_vtd.values())
-    }
-    return pd.DataFrame(rows)
+    return _render_to_df(dem_vote_by_vtd, rep_vote_by_vtd, dv_col, rv_col, geo_col)
 
-def load_harvard14_data(harvard_file, counties_file, dv_col, rv_col, geo_col, state_prefix, ignore_extra=False):
-    """Load precinct-level House of Representatives data into a Pandas dataframe from a CSV in the Harvard Dataverse 2014 dataset.
-       Source: https://doi.org/10.7910/DVN/B51MPX
 
-        Arguments:
-       - open_file: CSV from Harvard Dataverse with precinct-level voting data. 
+def load_md_raw_openelections(open_file, counties_file, dv_col, rv_col, geo_col, state_prefix='24'):
+    """Load precinct-level House of Representatives election data into a Pandas DataFrame from an OpenElections Marylnd-format CSV.
+       Note that this format is distinct from that processed by load_openelections_data().
+       It seems to be raw data downloaded off a government website or copied directly from an Excel spreadsheet.
+       Arguments:
+       - open_file: CSV (specific to a particular year) from OpenElections with precinct-level voting data
        - counties_file: county names -> FIPS codes table from Census Bureau
        - dv_col:        name of *D*emocratic *v*otes column in processed data
        - rv_col:        name of *R*epublican *v*otes column in processed data
        - geo_col:       name of GeoID column in processed data
        - state_prefix:  two-digit numerical identifier for each state based on alphabetization
-       - ignore_extra:  If True, sum the 'g2014_USH_d*v' columns to one DV column and the 'g2014_USH_r*v' columns into one RV column.
-                        If False, ignore the 'g2014_USH_d*v' and 'g2014_USH_r*v' auxiliary columns and only consider the main 'g2014_USH_dv' and 'g2014_USH_rv' columns.
 
        Returns a Pandas DataFrame with processed data.
     """
-    raw = pd.read_csv(harvard_file)
-    raw['fips_county'] = convert_counties(list(raw['county']), counties_file)
+    raw = pd.read_csv(open_file, low_memory=False)
+    congress = raw[(raw.office=='U.S. Congress') & ((raw.party=='REP') | (raw.party=='DEM'))]
+
+    county_name_to_fips = {}
+    with open(counties_file) as f:
+        for row in f:
+            county_name = row.split(',')[3].replace(' County', '').replace(' city', '').replace('St.', 'St').lower()
+            fips = row.split(',')[2].zfill(3)
+            county_name_to_fips[county_name] = fips
     
-    dv_cols = []
-    rv_cols = []
-    for c in raw.columns:
-        if ignore_extra:
-            if c == "g2014_USH_dv":
-                dv_cols.append(c)
-            elif c == "g2014_USH_rv":
-                rv_cols.append(c)
-        else:
-            if c.startswith("g2014_USH_d"):
-                dv_cols.append(c)
-            elif c.startswith("g2014_USH_r"):
-                rv_cols.append(c)
+    dem_vote_by_vtd = defaultdict(int)
+    rep_vote_by_vtd = defaultdict(int)
+    # Convert jurisdiction columns in OpenElections to Harvard Dataverse GeoID conventions
+    for row in congress.itertuples():
+        county = getattr(row, 'division').split('/')[-2].split(':')[1].replace('_', ' ').replace('~', "'")
+        county_fips = county_name_to_fips[county]
+        precinct = getattr(row, 'jurisdiction')[1:] # strip leading 0
+        geo_id = state_prefix + county_fips + precinct
+        
+        party = getattr(row, 'party')
+        votes = getattr(row, 'votes')
+        if party == 'DEM' and votes > dem_vote_by_vtd[geo_id]:
+            dem_vote_by_vtd[geo_id] = votes
+            rep_vote_by_vtd[geo_id] = rep_vote_by_vtd[geo_id] # identity init
+        elif party == 'REP' and votes > rep_vote_by_vtd[geo_id]:
+            rep_vote_by_vtd[geo_id] = votes
+            dem_vote_by_vtd[geo_id] = dem_vote_by_vtd[geo_id]
+            
+    # TODO: make X_votes_by_vtd variable name consistent throughout file
+    return _render_to_df(dem_vote_by_vtd, rep_vote_by_vtd, dv_col, rv_col, geo_col)
 
-    data = {
-        geo_col: [],
-        dv_col:  [],
-        rv_col:  []
-    }
-    for row in raw.itertuples():
-        dv_total = 0
-        for col in dv_cols:
-            try:
-                dv_total += int(getattr(row, col))
-            except ValueError: pass
-        rv_total = 0
-        for col in rv_cols:
-            try:
-                rv_total += int(getattr(row, col))
-            except ValueError: pass
-        data[geo_col].append(state_prefix + getattr(row, 'fips_county') + str(getattr(row, 'precinct')).lstrip('0'))
-        data[dv_col].append(dv_total)
-        data[rv_col].append(rv_total)
+def load_md_gov_data(md_gov_file, counties_file, dv_col, rv_col, geo_col, state_prefix='24'):
+    """Load precinct-level House of Representatives election data into a Pandas DataFrame from official Maryland government data (currently unused).
+        Arguments:
+        - open_file: CSV (specific to a particular year) from Maryland.gov with precinct-level voting data
+        - counties_file: county names -> FIPS codes table from Census Bureau
+        - dv_col:        name of *D*emocratic *v*otes column in processed data
+        - rv_col:        name of *R*epublican *v*otes column in processed data
+        - geo_col:       name of GeoID column in processed data
+        - state_prefix:  two-digit numerical identifier for each state based on alphabetization
 
-    return pd.DataFrame(data)
+        Returns a Pandas DataFrame with processed data.
+    """
+    raw = pd.read_csv(md_gov_file, low_memory=False, encoding='latin-1')
+    # filter out non Rep/Dem votes for consistency with other datasets
+    congress = raw[(raw['Office Name'] == 'Rep in Congress') & ((raw['Party']=='REP') | (raw['Party']=='DEM'))].copy()
+    congress["fips_county"] = convert_counties(list(congress['County']), counties_file)
+    rv_by_precinct = defaultdict(int) # highest Republican vote by precinct
+    dv_by_precinct = defaultdict(int) # highest Democratic vote by precinct
+
+    for _, row in congress.iterrows():
+        geo_id = ('%s%s%s-%s') % (state_prefix, row['fips_county'], str(row['Election District']).zfill(2), str(row['Election Precinct']).zfill(3))
+        try:
+            votes = int(row['Election Night Votes'])
+        except ValueError:
+            votes = 0
+
+        if row.Party == "REP":
+            rv_by_precinct[geo_id] = max(rv_by_precinct[geo_id], votes)
+            if geo_id not in dv_by_precinct:
+                dv_by_precinct[geo_id] = 0
+        elif row.Party == "DEM":
+            dv_by_precinct[geo_id] = max(dv_by_precinct[geo_id], votes)
+            if geo_id not in rv_by_precinct:
+                rv_by_precinct[geo_id] = 0
+
+    return _render_to_df(dv_by_precinct, rv_by_precinct, dv_col, rv_col, geo_col)
+        
+def _diff_to_votemap(df, diff, dv_col, rv_col, geo_col):
+    """ Helper method for building vote-based concordance tables. """
+    votes_to_id = {}
+    for row in df.itertuples():
+        geo_id = getattr(row, geo_col)
+        if geo_id in diff:
+            dv = getattr(row, dv_col)
+            rv = getattr(row, rv_col)
+            if dv > 0 or rv > 0:
+                if (dv,rv) not in votes_to_id:
+                    votes_to_id[(dv,rv)] = geo_id
+                else:
+                    print('Warning: overlap for votes (%d, %d)' % (dv,rv))
+    return votes_to_id
 
 def map_open_harvard(harvard_file, open_file, counties_file, dv_col, rv_col, geo_col, state_prefix):
     """Try to munge Harvard and OpenElections data into a pleasing mélange.
@@ -246,10 +305,7 @@ def map_open_harvard(harvard_file, open_file, counties_file, dv_col, rv_col, geo
        [1] Harvard Dataverse GeoDataFrame
        [2] Processed OpenElections DataFrame
     """
-    try:
-        harvard_df = load_harvard14_data(harvard_file, counties_file, dv_col, rv_col, geo_col, state_prefix) # CSV (2014)
-    except pd.errors.ParserError:
-        harvard_df = gpd.read_file(harvard_file) # shapefile (2010)
+    harvard_df = gpd.read_file(harvard_file) # shapefile (2010)
     open_df = load_openelections_data(open_file, counties_file, dv_col, rv_col, geo_col, state_prefix)
     
     open_geo = set(open_df[geo_col]) # s_geo
@@ -290,3 +346,12 @@ def map_open_harvard(harvard_file, open_file, counties_file, dv_col, rv_col, geo
             open_to_harvard[geo_id] = geo_id
 
     return (open_to_harvard, harvard_df, open_df)
+
+def _render_to_df(dv, rv, dv_col, rv_col, geo_col):
+    """ Return tallied precinct-level Democratic and Republican votes as a Pandas DataFrame. """
+    rows = {
+        geo_col: list(dv.keys()),
+        dv_col:  list(dv.values()),
+        rv_col:  list(rv.values())
+    }
+    return pd.DataFrame(rows)

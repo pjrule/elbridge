@@ -8,7 +8,6 @@ PA:
   sources:
     vtd_map: https://dataverse.harvard.edu/api/access/datafiles/2301829,2301833,2301830,2301834,2301827,2301831,2301835,2301828?gbrecs=true
     demographics: ftp://ftp2.census.gov/census_2010/01-Redistricting_File--PL_94-171/Pennsylvania/pa2010.pl.zip
-    county_map: http://www2.census.gov/geo/tiger/TIGER2013/COUSUB/tl_2013_42_cousub.zip
     county_names: https://www2.census.gov/geo/docs/reference/codes/files/st42_pa_cou.txt
     openelections: # supplementary for 2008-2010, sole source for 2012-2016
       2006: https://raw.githubusercontent.com/openelections/openelections-data-pa/master/2006/20061107__pa__general__precinct.csv
@@ -22,3 +21,38 @@ PA:
     county_map: tl_2013_42_cousub.shp
     demographics_02: pa000022010.pl
     demographics_geo: pageo2010.pl  
+
+MD:
+  sources:
+    vtd_map: https://dataverse.harvard.edu/api/access/datafiles/2288574
+    demographics: ftp://ftp2.census.gov/census_2010/01-Redistricting_File--PL_94-171/Maryland/md2010.pl.zip
+    county_names: https://www2.census.gov/geo/docs/reference/codes/files/st24_md_cou.txt
+    openelections:
+      2008: https://raw.githubusercontent.com/openelections/openelections-results-md/master/raw/20081104__md__general__precinct__raw.csv
+      2010: https://raw.githubusercontent.com/openelections/openelections-results-md/master/raw/20101102__md__general__precinct__raw.csv
+      2012: https://raw.githubusercontent.com/openelections/openelections-results-md/master/raw/20121106__md__general__precinct__raw.csv
+      2014: https://raw.githubusercontent.com/openelections/openelections-results-md/master/raw/20141104__md__general__precinct__raw.csv
+      2016: https://raw.githubusercontent.com/openelections/openelections-results-md/master/raw/20161108__md__general__precinct__raw.csv
+    md_gov:
+      2012: https://elections.maryland.gov/elections/2012/election_data/All_By_Precinct_2012_General.csv
+      2016: https://elections.maryland.gov/elections/2016/election_data/All_By_Precinct_2016_General.csv
+  filenames:
+    vtd_map: "MD.shp"
+    vtd_map_inner_zip: "MD Data.zip"
+    vtd_map_inner_zip_dir: "MD Data"
+    demographics_02: md000022010.pl
+    demographics_geo: mdgeo2010.pl
+
+# Main ArcGIS pages:
+# https://data-ltsb.opendata.arcgis.com/datasets/df42bb0d6e6041229f6fb0cb1cbd0ef3_0 (2002-2010)
+# https://data-ltsb.opendata.arcgis.com/datasets/2012-2020-wi-election-data-with-2017-wards (2012-2020)
+# Official Wisconsin REST API: https://mapservices.legis.wisconsin.gov/arcgis/rest/services/Election_Data
+WI:
+  sources:
+    ward_maps:
+      2010: https://opendata.arcgis.com/datasets/df42bb0d6e6041229f6fb0cb1cbd0ef3_0.zip
+      2020: https://opendata.arcgis.com/datasets/62d5782482cd45f2898fe7e3d4272c10_0.zip
+  filenames:
+    ward_maps:
+      2010: 2002_2010_Election_Data_with_2017_Wards.shp
+      2020: 2012_2020_Election_Data_with_2017_Wards.shp
