@@ -10,7 +10,7 @@ Elbridge relies on data from [Harvard Election Data Archive](https://projects.iq
 - `md_gov`: VTD-level election data from Maryland.gov.
 - `ward_maps`: ward-level election data from Wisconsin.gov.
 
-Note that "VTD" is an abbreviation for "voting district," which is essentially synonymous to "precinct."
+Note that "VTD" is an abbreviation for "voting district," which is essentially synonymous with "precinct."
 
 ## Downloading Data
 Use `get.py` to download and parse data. It depends on being in this folder and expects two arguments: a two-letter state code and an empty directory to dump data to. Example usage:

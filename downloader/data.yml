@@ -32,7 +32,6 @@ MD:
       2010: https://raw.githubusercontent.com/openelections/openelections-results-md/master/raw/20101102__md__general__precinct__raw.csv
       2012: https://raw.githubusercontent.com/openelections/openelections-results-md/master/raw/20121106__md__general__precinct__raw.csv
       2014: https://raw.githubusercontent.com/openelections/openelections-results-md/master/raw/20141104__md__general__precinct__raw.csv
-      2016: https://raw.githubusercontent.com/openelections/openelections-results-md/master/raw/20161108__md__general__precinct__raw.csv
     md_gov:
       2012: https://elections.maryland.gov/elections/2012/election_data/All_By_Precinct_2012_General.csv
       2016: https://elections.maryland.gov/elections/2016/election_data/All_By_Precinct_2016_General.csv
