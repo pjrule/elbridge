@@ -22,6 +22,6 @@ Use `get.py` to download and parse data. It depends on being in this folder and 
 ## Output
 `get.py` generates the following summary files (names configurable):
 - `vtd_demographics.csv`: VTD-level/ward-level demographic data necessary to determine whether or not a district is majority-minority. The `white` column is the number of non-Hispanic white people in a district; the `other` column is the number of people who are non-white or Hispanic white in a district.
-- `vtd_elections.csv`: VTD-level/ward-level vote counts (DV = Democratic votes, RV = Republican votes). Votes totals outside of the two major parties are omitted. Some VTDs may only have data available for years, as VTD maps can change.
+- `vtd_elections.csv`: VTD-level/ward-level vote counts (DV = Democratic votes, RV = Republican votes). Vote totals outside of the two major parties are omitted. Some VTDs may only have data available for years, as VTD maps can change.
 
 Additionally, `get.py` retains the shapefiles that contain VTD/ward boundaries in either `vtd_map` or `ward_maps`. Raw data from the U.S. Census Bureau and OpenElections is deleted after processing, though this deletion can be disabled with the `--keep-census` and `--keep-openelections` flags, respectively.
