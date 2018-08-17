@@ -4,3 +4,7 @@ __pycache__/
 *.py[cod]
 *$py.class
 downloader/PA
+*.csv
+*.tab
+.vscode
+.DS_Store

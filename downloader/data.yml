@@ -7,7 +7,7 @@
 PA:
   sources:
     vtd_map: https://dataverse.harvard.edu/api/access/datafiles/2301829,2301833,2301830,2301834,2301827,2301831,2301835,2301828?gbrecs=true
-    demographics: ftp://ftp2.census.gov/census_2010/01-Redistricting_File--PL_94-171/Pennsylvania/pa2010.pl.zip
+    demographics: https://www2.census.gov/census_2010/01-Redistricting_File--PL_94-171/Pennsylvania/pa2010.pl.zip
     county_names: https://www2.census.gov/geo/docs/reference/codes/files/st42_pa_cou.txt
     openelections: # supplementary for 2008-2010, sole source for 2012-2016
       2006: https://raw.githubusercontent.com/openelections/openelections-data-pa/master/2006/20061107__pa__general__precinct.csv
@@ -25,7 +25,7 @@ PA:
 MD:
   sources:
     vtd_map: https://dataverse.harvard.edu/api/access/datafiles/2288574
-    demographics: ftp://ftp2.census.gov/census_2010/01-Redistricting_File--PL_94-171/Maryland/md2010.pl.zip
+    demographics: https://www2.census.gov/census_2010/01-Redistricting_File--PL_94-171/Maryland/md2010.pl.zip
     county_names: https://www2.census.gov/geo/docs/reference/codes/files/st24_md_cou.txt
     openelections:
       2008: https://raw.githubusercontent.com/openelections/openelections-results-md/master/raw/20081104__md__general__precinct__raw.csv
