@@ -9,6 +9,7 @@ import pysal
 from copy import copy, deepcopy
 from random import choice
 from numba import jit
+import matplotlib.pyplot as plt
 
 # districts' populations can differ by TOLERANCE%.
 # Right now, this is implemented such that, if a district goes over quota by 0.1%, then the next district must go under quota by 0.1% when possible.
@@ -119,7 +120,7 @@ class Map:
         pass
 
     #@jit
-    def allocate(self, x, y):
+    def allocate(self, x, y, i):
         """
         If possible under equal population constraints, allocate the county at (x,y) to the current district if the county has not been previously allocated.
         If not possible, allocate the town at (x,y). If not possible, allocate the VTD at (x,y).
@@ -143,6 +144,8 @@ class Map:
            and self.district_pop_allocated <= self.target * (1 + TOLERANCE):
            self.district_pop_allocated = 0
            self.vtd_by_district.append([])
+           self.current_district += 1
+       
         county_id = self.df.iloc[vtd_idx]['county']
         vtd_in_county = list(self.df[self.df['county'] == county_id].index)
         """
@@ -178,78 +181,94 @@ class Map:
             county_pop += self.total_pop[idx]
 
         if self.district_pop_allocated + county_pop <= self.target: # TODO (URGENT) tolerance
-            print(unallocated_in_county)
-            print(county_pop)
             self.update(unallocated_in_county, county_pop)
-            return
-
+            self.plot(i)
+            
         """
-        2. Randomly remove cities (N times; this is the algorithm's main parameter) from the remaining county. 
-        For a given removal process, abort when:
-        a. The total population of the modified remaining county plus the population of the current district 
-           is less than or equal to the population constraint. When this occurs, retain the modified county.
-        b. There is no path between ward containing (x, y) and the current district. When this occurs, 
-           discard the modified county.
-
-        From all of the retained modified counties, choose the modification that results in the most number
-        of people being allocated. If no modified counties satisfy the population constraint, proceed to step 3.
+        2. Build a graph of cities or city fragments.
+        A city's contiguity about its border is simply the union of the contiguity of its VTDs' borders.
         """
-        candidates = {}
-        for i in range(N):
-            valid = True
-            all_vtd = copy(unallocated_in_county) # master list of possible VTDs; the while loop whittles them down
-            candidate_pop = county_pop
-            while self.district_pop_allocated + candidate_pop > self.target and len(all_vtd) > 0:
-                random_vtd = choice(all_vtd)
-                city_id = self.df.iloc[random_vtd]['city']
-                vtd_in_city = list(self.df[self.df['city'] == city_id].index)
-                for idx in vtd_in_city:
-                    if idx in self.vtd_by_district[0]:
-                        all_vtd.remove(idx)
-                        candidate_pop -= self.total_pop[idx]
-                    else:
-                        vtd_in_city.remove(idx)
-                if len(self._border_graph(all_vtd)) == 0:
-                    valid = False
-                    break
-            ws_valid, _ = self.validate_update(vtd_in_city)
-            if valid and ws_valid and self.district_pop_allocated + county_pop <= self.target:
-                candidates[candidate_pop] = all_vtd
-                print("town elimination iteration %d: %d" % (i, all_vtd))
-            print("town elimination iteration %d: invalid" % i)
 
-        if len(candidates) > 0:
-            best_pop = sorted(candidates.keys())[-1]
-            best = candidates[best_pop]
-            self.update(best, best_pop)
-            return
+        # Find outer borders
+        cities_in_county = defaultdict(dict)
+        city_borders = {}
+        orig_county_pop = county_pop
 
-        """ 3. Randomly remove individual VTDs from the remaining county under the constraints above. """
-        candidates = {}
-        for i in range(N):
-            valid = True
-            all_vtd = copy(unallocated_in_county) # master list of possible VTDs; the while loop whittles them down
-            candidate_pop = county_pop
-            while self.district_pop_allocated + candidate_pop > self.target and len(all_vtd) > 0:
-                random_vtd = choice(all_vtd)
-                all_vtd.remove(random_vtd)
-                if len(self._border_graph([random_vtd])) == 0:
-                    valid = False
-                    break
-            ws_valid, _ = self.validate_update(vtd_in_city)
-            if valid and ws_valid and self.district_pop_allocated + county_pop <= self.target:
-                candidates[candidate_pop] = all_vtd
-                print("VTD elimination iteration %d: %d" % (i, all_vtd))
-            print("VTD elimination iteration %d: invalid" % i)
+        for idx in unallocated_in_county:
+            cities_in_county[self.df.iloc[idx]['city']][idx] = copy(self.graph[idx])
 
-        if len(candidates) > 0:
-            best_pop = sorted(candidates.keys())[-1]
-            best = candidates[best_pop]
-            self.update(best, best_pop)
+        for city_idx in cities_in_county:   
+            city_border = set([])     
+            for outer_idx in cities_in_county[city_idx]:
+                for inner_idx in cities_in_county[city_idx][outer_idx]:
+                    if inner_idx in cities_in_county[city_idx][outer_idx]:
+                        cities_in_county[city_idx][outer_idx].remove(inner_idx)
+                
+                if len(cities_in_county[city_idx][outer_idx]) > 0:
+                        city_border = city_border.union(cities_in_county[city_idx][outer_idx])
+            city_borders[city_idx] = city_border
+    
+        # Find inner cities and eliminate
+        outer_cities = {}
+        for city_idx, border in city_borders.items():
+            edges_within = 0
+            for border_idx in border:
+                if border_idx in unallocated_in_county:
+                    edges_within += 1
+            if edges_within < len(border):
+                outer_cities[city_idx] = border
 
-        """ 4. If 3 fails, abort. """
-        return
+        removed = []
+        while self.district_pop_allocated + county_pop > self.target and len(outer_cities) > 0:
+            print(len(self.vtd_by_district[0]), '\t', "county_pop:", county_pop)
+            # Randomly eliminate a city
+            # TODO other objective functions here (population, distance)
+            elim = choice(list(outer_cities.keys()))
+            vtd = list(self.df[self.df['city'] == elim].index)
+            for idx in vtd:
+                if vtd in unallocated_in_county:
+                    unallocated_in_county.remove(idx)
+                    removed.append(idx)
+                    county_pop -= self.total_pop[idx]
+            del outer_cities[elim]
 
+        if len(outer_cities) > 0:
+            for idx in unallocated_in_county:
+                county_pop += self.total_pop[idx]
+            if self.district_pop_allocated + county_pop <= self.target: # TODO (URGENT) tolerance
+                self.update(unallocated_in_county, county_pop)
+                self.plot(i)
+
+        else:
+            unallocated_in_county += removed
+            county_pop = orig_county_pop
+            while self.district_pop_allocated + county_pop > self.target and len(unallocated_in_county) > 0:
+                print(len(self.vtd_by_district[0]), '\t', "county_pop:", county_pop)
+                elim = choice(unallocated_in_county)
+                idx_in_county = 0
+                idx_in_district = 0
+                
+                for idx in self.graph[elim]:
+                    if idx in unallocated_in_county:
+                        idx_in_county += 1
+
+                if idx_in_county < len(self.graph[elim]):
+                    unallocated_in_county.remove(elim)
+                    county_pop -= self.total_pop[elim]
+                    self.update([elim], self.total_pop[elim])
+                    self.plot(i)
+
+    def plot(self, i):
+        alloc = np.zeros(len(self.df))
+        for district_idx, district in enumerate(self.vtd_by_district):
+            for idx in district:
+                alloc[idx] = district_idx
+                
+        self.df['alloc'] = alloc
+        self.df.plot(column='alloc')
+        plt.plot(x_abs, y_abs)
+        plt.savefig('%d.png' % i, dpi=600, bbox_inches='tight')
+        
     #@jit
     def update(self, allocated, pop):
             self.district_pop_allocated += pop
