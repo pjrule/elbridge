@@ -23,7 +23,7 @@ The same convention applies to U.S. Census population totals.
 """
 
 class Wisconsin(Map):
-    def __init__(self, ward_map_file, vtd_elections_file, vtd_demographics_file, resolution, decay):
+    def __init__(self, ward_map_file, vtd_elections_file, vtd_demographics_file, density_resolution, geo_resolution):
         ward_map = gpd.read_file(ward_map_file)
         vtd_elections    = pd.read_csv(vtd_elections_file)
         vtd_demographics = pd.read_csv(vtd_demographics_file)
@@ -46,7 +46,8 @@ class Wisconsin(Map):
         self.df = gpd.GeoDataFrame(columns)
         self.df.crs = ward_map.crs
         self.n_districts = N_DISTRICTS["WI"]
-        super().__init__(resolution, decay)
+
+        super().__init__(density_resolution, geo_resolution)
 
 class Pennsylvania(Map):
     # TODO: add county map?
