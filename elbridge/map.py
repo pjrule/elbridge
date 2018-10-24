@@ -11,20 +11,23 @@ from shapely.prepared import prep
 from collections import defaultdict
 import pysal
 from copy import copy, deepcopy
-from random import choice
+from random import choice, randint, random, shuffle
 from numba import jit
 import matplotlib.pyplot as plt
 from math import floor, ceil
-from time import time
+from copy import copy
 
 # districts' populations can differ by TOLERANCE%.
 # Right now, this is implemented such that, if a district goes over quota by 0.1%, then the next district must go under quota by 0.1% when possible.
 # This prevents "tolerance debt" from accumulating.
 # For example, consider10 districts going over quota by 1%, which would require an 11th district to go over quota 10%.
-TOLERANCE = 0.0025  
-BISECT_TOLERANCE = 0.05
-BISECT_MAX_ITER = 100
-N = 100
+TOLERANCE = 0.0025
+
+BISECT_RTOL = 0.0001
+BISECT_REL_XTOL = 0.01
+BISECT_MAX_ITER = 80
+
+P_RANDOM_ALLOC = 0.1
 
 class Map:
     """
@@ -49,6 +52,7 @@ class Map:
         """
         self.df = self.df.to_crs({'init': 'esri:102003'})
         self.adj = pysal.weights.Rook.from_dataframe(self.df)
+        
         # Two VTDs in Wisconsin consist entirely of islands. 
         # For simplicity, we will fuse islands with their nearest neighbors by centroid distance.
         if len(self.adj.islands) > 0:
@@ -95,9 +99,12 @@ class Map:
         TODO: interpolation?
         """
         self.area = np.zeros(len(self.df))
+        self.centroids = np.zeros((2,len(self.df)))
         for row in self.df.itertuples():    
             idx = getattr(row, 'Index')
             self.area[idx] = getattr(row, 'geometry').area
+            self.centroids[0][idx] = getattr(row, 'geometry').centroid.x
+            self.centroids[1][idx] = getattr(row, 'geometry').centroid.y
 
         # NOTE CONVENTIONS HERE
         total = self.df['white_pop'] + self.df['minority_pop']
@@ -115,53 +122,56 @@ class Map:
         else:
             self.max_radius = (self.max_x - self.min_x) / 2
             
-
-        """
-        For efficiency, we rasterize the map twice.
-        One rasterization (typically relatively low-resolution) allows for quick updates of the district map.
-        The other rasterization (typically relatively high-resolution) allows for quick approximation of population within a given radius.
-        """
         self.alpha = (self.max_x - self.min_x) / (self.max_y - self.min_y)
-        # Create concordances/rtree
-        density_s = np.sqrt(density_resolution / self.alpha)
+
+        
+    def reset(self):
+        # TODO move rtree reset into a separate init method? (it doesn't change—just needs to be reloaded once/unpickle)
+        self.vtd_idx = rtree.index.Index()
+        for df_row in self.df.itertuples():
+            self.vtd_idx.insert(getattr(df_row, 'Index'), getattr(df_row, 'geometry').bounds)
+
+        # Initialize graph of VTDs (unallocated)
+        self.graph = mg.MapGraph(self.adj)
+
+        # Initialize agent location to a random VTD centroid.
+        vtd = randint(0, len(self.df)-1)
+        cent = self.df.iloc[vtd].geometry.centroid
+        self.x = cent.x
+        self.y = cent.y 
+
+        # Initialize county indices
+        self.unallocated_in_county = defaultdict(list)
+        self.vtd_to_county = {}
+        for idx, vtd in self.df.iterrows():
+            self.unallocated_in_county[getattr(vtd, 'county')].append(idx)
+            self.vtd_to_county[idx] = getattr(vtd, 'county')
+
+        # Initialize city indices
+        self.unallocated_in_city = defaultdict(list)
+        self.vtd_to_city = {}
+        for idx, vtd in self.df.iterrows():
+            self.unallocated_in_city[getattr(vtd, 'city')].append(idx)
+            self.vtd_to_city[idx] = getattr(vtd, 'city')
+
+        # State management
+        self.vtd_by_district = [list(self.df.index), []]
+        self.current_district = 1
+        self.debt = 0
+        self.done = False
+        self.i = 0
+
+    def load_density_mapping(self, density_mapping=None, density_mapping_save=None):
+        density_s = np.sqrt(self.density_resolution / self.alpha)
         self.density_n_rows = int(np.ceil(density_s))
         self.density_n_cols = int(np.ceil(density_s*self.alpha))
         self.density_width = (self.max_x - self.min_x) / self.density_n_cols
         self.density_height = (self.max_y - self.min_y) / self.density_n_rows
 
-        # Placeholder density rasterization
-        self.reset_rtree()
-        self.square_density = np.zeros((1,1))
-        # Placeholder geographical rasterization
-        dist_s = np.sqrt(self.geo_resolution / self.alpha)
-        self.geo_n_rows = int(np.ceil(dist_s))
-        self.geo_n_cols = int(np.ceil(dist_s*self.alpha))
-        self.geo_weights = scipy.sparse.lil_matrix((len(self.df), self.geo_n_rows*self.geo_n_cols))
-        
-        """
-        Graph for allocation (used to make sure whitespace is not lost) 
-        """
-        self.districts = np.zeros(len(self.df))
-        self.districts[0] = len(self.df)
-        self.vtd_by_district = [list(self.df.index), []]
-        self.current_district = 1
-        self.debt = 0
-        self.done = False
-
-    def reset_rtree(self):
-        self.vtd_idx = rtree.index.Index()
-        for df_row in self.df.itertuples():
-            self.vtd_idx.insert(getattr(df_row, 'Index'), getattr(df_row, 'geometry').bounds)
-
-    def init_graph(self):
-        self.graph = mg.MapGraph(self.adj)
-
-    def load_density_mapping(self, density_mapping=None, density_mapping_save=None):
         if density_mapping:
             self.square_density = np.load(density_mapping)
         else:
             density = self.total_pop / self.area
-            print("Rendering density rasterization...")
             self.square_density = np.zeros((self.density_n_cols, self.density_n_rows))
             for row in tqdm.tqdm(range(self.density_n_rows)):
                 b_min_y = ((self.max_y - self.min_y) * row/self.density_n_rows) + self.min_y
@@ -177,15 +187,19 @@ class Map:
                             # https://stackoverflow.com/questions/13062334/polygon-intersection-error-python-shapely
                             intersect = getattr(self.df.iloc[fid], 'geometry').buffer(0).intersection(bounds).area / bounds.area
                             self.square_density[col,row] += intersect * density[fid]
-            if not density_mapping and density_mapping_save:
+            if density_mapping_save:
                 np.save(density_mapping_save, self.square_density)
 
     def load_geo_mapping(self, geo_mapping=None, geo_mapping_save=None): 
+        dist_s = np.sqrt(self.geo_resolution / self.alpha)
+        self.geo_n_rows = int(np.ceil(dist_s))
+        self.geo_n_cols = int(np.ceil(dist_s*self.alpha))
+        self.geo_weights = scipy.sparse.lil_matrix((len(self.df), self.geo_n_rows*self.geo_n_cols))
+
         if geo_mapping:
                 self.geo_weights = scipy.sparse.load_npz(geo_mapping)
         else:
             # Generate the geographical rasterization
-            print("Rendering geographical rasterization...")
             for row in tqdm.tqdm(range(self.geo_n_rows)):
                 b_min_y = ((self.max_y - self.min_y) * row/self.geo_n_rows) + self.min_y
                 b_max_y = ((self.max_y - self.min_y) * (row + 1)/self.geo_n_rows) + self.min_y
@@ -207,28 +221,40 @@ class Map:
         pass
 
     #@jit
-    def allocate(self, x, y, i):
+    def allocate(self, r_P, theta, to_vtd=None):
         """
-        If possible under equal population constraints, allocate the county at (x,y) to the current district if the county has not been previously allocated.
-        If not possible, allocate the town at (x,y). If not possible, allocate the VTD at (x,y).
-        Raw (x,y) coordinates from the NNs are bounded from (0,0) to (1,1).
-        For instance, (0.5, 0.5) is halfway in between the min and max x and halfway in between the min and max y.
+        Coordinates are given in the (r_P, θ) system, where r_P is a proportion of the population (0-1) and θ is a direction (in radians).
         """
-        x_abs = ((self.max_x - self.min_x) * x) + self.min_x
-        y_abs = ((self.max_y - self.min_y) * y) + self.min_y
-        p = Point((x_abs, y_abs))
-        vtd_idx = None
-        for fid in list(self.vtd_idx.intersection(p.bounds)):
-            # API: https://streamhsacker.com/2010/03/23/python-point-in-polygon-shapely/
-            if getattr(self.df.iloc[fid], 'geometry').contains(p):
-                vtd_idx = fid
-                break
-        
-        if vtd_idx not in self.vtd_by_district[0]:
-            return # already allocated
-       
-        county_id = self.df.iloc[vtd_idx]['county']
-        vtd_in_county = list(self.df[self.df['county'] == county_id].index)
+        if random() < P_RANDOM_ALLOC and self.vtd_by_district[self.current_district] and not to_vtd:
+            border_vtds = []
+            self.allocate(0, 0, to_vtd=choice(self.graph.unallocated_on_border(self.current_district)))
+            return
+
+        if not to_vtd:
+            r_P_abs = min(max(0, r_P), 1) * self.total_pop.sum()
+            r_G = self.people_to_geo(r_P_abs)
+            to_x = min(max(self.min_x, r_G * np.cos(theta) + self.x), self.max_x)
+            to_y = min(max(self.min_y, r_G * np.sin(theta) + self.y), self.max_y)
+            p = Point((to_x, to_y))
+            
+            vtd_idx = None
+            for fid in list(self.vtd_idx.intersection(p.bounds)):
+                # API: https://streamhsacker.com/2010/03/23/python-point-in-polygon-shapely/
+                if getattr(self.df.iloc[fid], 'geometry').contains(p):
+                    vtd_idx = fid
+                    break
+            
+            if vtd_idx in self.vtd_by_district[self.current_district]:
+                self.x = to_x
+                self.y = to_y
+                return
+            elif not vtd_idx or vtd_idx not in self.vtd_by_district[0]:
+                return # already allocated or out of bounds
+        else:
+            vtd_idx = to_vtd
+            to_x = self.centroids[0][vtd_idx]
+            to_y = self.centroids[1][vtd_idx]
+
         """
         Algorithm for allocating VTDs:
         1. Figure out if the county, or the remaining unallocated part of the county, 
@@ -246,109 +272,123 @@ class Map:
             If the remaining county can be allocated, do so. 
             If contiguity is violated, abort. Otherwise, proceed to step 2.
         """
-        unallocated_in_county = []
         county_pop = 0
-        for idx in vtd_in_county:
-            if idx in self.vtd_by_district[0]:
-                unallocated_in_county.append(idx)
-                county_pop += self.total_pop[idx]
-        if not self.graph.contiguous(unallocated_in_county):
+        county = self.df.iloc[vtd_idx]['county']
+        for idx in self.unallocated_in_county[county]:
+            county_pop += self.total_pop[idx]
+        if not self.graph.contiguous(self.unallocated_in_county[county]):
             return # no connection between county and current district
-
-        if self.update(unallocated_in_county, county_pop):
+        if to_vtd:
+            self.x = to_x
+            self.y = to_y
+            self.i += 1
+        if self.update(self.unallocated_in_county[county], county_pop):
+            self.i += 1
             return # whole county allocated
-        """
-        2. Build a graph of cities or city fragments.
-        A city's contiguity about its border is simply the union of the contiguity of its VTDs' borders.
-        """
-
-        # Find outer borders
-        cities_in_county = defaultdict(dict)
-        city_borders = {}
-        orig_county_pop = county_pop
-
-        for idx in unallocated_in_county:
-            cities_in_county[self.df.iloc[idx]['city']][idx] = copy(self.graph[idx])
-
-        for city_idx in cities_in_county:   
-            city_border = set([])     
-            for outer_idx in cities_in_county[city_idx]:
-                for inner_idx in cities_in_county[city_idx][outer_idx]:
-                    if inner_idx in cities_in_county[city_idx][outer_idx]:
-                        cities_in_county[city_idx][outer_idx].remove(inner_idx)
-                
-                if len(cities_in_county[city_idx][outer_idx]) > 0:
-                        city_border = city_border.union(cities_in_county[city_idx][outer_idx])
-            city_borders[city_idx] = city_border
-    
-        # Find inner cities and eliminate
-        outer_cities = {}
-        for city_idx, border in city_borders.items():
-            edges_within = 0
-            for border_idx in border:
-                if border_idx in unallocated_in_county:
-                    edges_within += 1
-            if edges_within < len(border):
-                outer_cities[city_idx] = border
-
-        removed = []
-        while len(outer_cities) > 0 and self.graph.contiguous(unallocated_in_county) and not self.update(unallocated_in_county, county_pop):
-            print(len(self.vtd_by_district[0]), '\t', "county_pop:", county_pop)
-            # Randomly eliminate a city
-            # TODO other objective functions here (population, distance)
-            elim = choice(list(outer_cities.keys()))
-            vtd = list(self.df[self.df['city'] == elim].index)
-            for idx in vtd:
-                if vtd in unallocated_in_county:
-                    unallocated_in_county.remove(idx)
-                    removed.append(idx)
-                    county_pop -= self.total_pop[idx]
-            del outer_cities[elim]
-
-        if len(outer_cities) > 0:
-            self.plot(i)
-
-        else:
-            unallocated_in_county += removed
-            county_pop = orig_county_pop
-            border_vtd = set([])
-            while len(unallocated_in_county) > 0 and self.graph.contiguous(unallocated_in_county) and not self.update(unallocated_in_county, county_pop):
-                print(len(self.vtd_by_district[0]), '\t', "[VTD] county_pop:", county_pop)
-                elim = choice(unallocated_in_county)
-                idx_in_county = 0
-                
-                for idx in self.graph[elim]:
-                    if idx in unallocated_in_county:
-                        idx_in_county += 1
-
-                if idx_in_county < len(self.graph[elim]):
-                    unallocated_in_county.remove(elim)
-                    county_pop -= self.total_pop[elim]
-                    border_vtd.add(elim)
-            
-            if len(unallocated_in_county) == 0 or not self.graph.contiguous(unallocated_in_county):
-                unallocated_border = set([])
-                for vtd in self.vtd_by_district[self.current_district]:
-                    graph = self.graph[vtd]
-                    for edge in graph:
-                        if edge in self.vtd_by_district[0]:
-                            unallocated_border.add(edge)
-
-                random_vtd = choice(list(unallocated_border))
-                self.update([random_vtd], self.total_pop[random_vtd])
-
-    def plot(self, i):
-        alloc = np.zeros(len(self.df))
-        for district_idx, district in enumerate(self.vtd_by_district):
-            for idx in district:
-                alloc[idx] = district_idx
-                
-        self.df['alloc'] = alloc
-        self.df.plot(column='alloc')
-        plt.savefig('%d.png' % i, dpi=900, bbox_inches='tight')
-        plt.close()
         
-    def pop_bounds(self):
+        """
+        Algorithm for allocating VTDs (cont'd):
+
+        2. If updating fails due to population constraints, remove cities (whole or fractional) on the border of the allocation.
+        Do this greedily until the constraints are satisfied, removing the cities farthest from (x,y) first.
+    
+        3. If updating fails due to population constraints, remove VTDs on the border of the allocation.
+        Do this greedily until the constraints are satisfied, removing the VTDs farthest from (x,y) first.
+        """
+        vtds = copy(self.unallocated_in_county[county])
+
+        tested = set([])
+        tested_cities = set([])
+        distances = np.flip(np.argsort(np.sqrt((self.centroids[0][vtds] - self.x)**2 + (self.centroids[1][vtds] - self.y)**2)))
+        border_vtds = set(self.graph.border_vtds(vtds))
+        last_idx = 0
+        while len(tested_cities) < len(set([self.vtd_to_city[vtd] for vtd in vtds])) and len(tested) < len(vtds):
+            farthest_vtd = None
+            for idx, vtd_idx in enumerate(distances[last_idx:]):
+                if vtds[vtd_idx] not in tested and self.vtd_to_city[vtds[vtd_idx]] not in tested_cities: #and vtds[vtd_idx] in border_vtds:
+                    farthest_vtd = vtds[vtd_idx]
+                    last_idx = idx + 1
+                    break
+            if not farthest_vtd:
+                break
+
+            test_vtds = copy(vtds)
+            removed = []
+            for city_vtd in self.unallocated_in_city[self.vtd_to_city[farthest_vtd]]:
+                if city_vtd in test_vtds:
+                    test_vtds.remove(city_vtd)
+                    removed.append(city_vtd)    
+
+            if self.graph.contiguous(test_vtds):
+                if self.update(test_vtds, sum([self.total_pop[vtd] for vtd in test_vtds])):
+                    return
+                else:
+                    for vtd in removed:
+                        vtds.remove(vtd)
+                    tested = set([])
+                    distances = np.flip(np.argsort(np.sqrt((self.centroids[0][vtds] - self.x)**2 + (self.centroids[1][vtds] - self.y)**2)))
+                    border_vtds = set(self.graph.border_vtds(vtds))
+                    last_idx = 0
+            else:
+                tested.add(farthest_vtd)
+                tested_cities.add(self.vtd_to_city[farthest_vtd])
+
+        # TODO clean up to avoid duplication
+        tested = set([]) # TODO should this be here?
+        distances = np.flip(np.argsort(np.sqrt((self.centroids[0][vtds] - self.x)**2 + (self.centroids[1][vtds] - self.y)**2)))
+        border_vtds = set(self.graph.border_vtds(vtds))
+        last_idx = 0
+        while len(vtds) > 0 and len(tested) < len(vtds):
+            farthest_vtd = None
+            for idx, vtd_idx in enumerate(distances[last_idx:]):
+                if vtds[vtd_idx] not in tested and vtds[vtd_idx] in border_vtds:
+                    farthest_vtd = vtds[vtd_idx]
+                    last_idx = idx + 1
+                    break
+            if not farthest_vtd:
+                break
+
+            test_vtds = copy(vtds)
+            test_vtds.remove(farthest_vtd)
+            if self.graph.contiguous(test_vtds):
+                if self.update(test_vtds, sum([self.total_pop[vtd] for vtd in test_vtds])):
+                    return
+                else:
+                    vtds.remove(farthest_vtd)
+                    tested = set([])
+                    distances = np.flip(np.argsort(np.sqrt((self.centroids[0][vtds] - self.x)**2 + (self.centroids[1][vtds] - self.y)**2)))
+                    border_vtds = set(self.graph.border_vtds(vtds))
+                    last_idx = 0
+            else:
+                tested.add(farthest_vtd)
+                
+        # last resort: allocate a single VTD
+        if self.graph.contiguous([vtd_idx]) and vtd_idx in self.vtd_by_district[0]:
+            self.update([vtd_idx], self.total_pop[vtd_idx])
+
+    def reset_district(self):
+        """ Reset the current district and restart in another location. """
+        for idx in self.vtd_by_district[self.current_district]:
+            self.unallocated_in_county[self.vtd_to_county[idx]].append(idx)
+            self.unallocated_in_city[self.vtd_to_city[idx]].append(idx)
+        self.vtd_by_district[0] += self.vtd_by_district[self.current_district]
+        self.vtd_by_district[self.current_district] = []
+        self.district_pop_allocated = 0
+        self.graph.reset_district()
+        # restart somewhere else
+        border_vtds = set([])
+        for district in range(1, self.current_district):
+            border_vtds = border_vtds.union(self.graph.unallocated_on_border(district))
+        border_vtds = list(border_vtds)
+        shuffle(border_vtds)
+        #border_vtds = copy(self.vtd_by_district[0])
+        shuffle(border_vtds)
+        for vtd in border_vtds:
+            self.allocate(0, 0, to_vtd=vtd)
+            if self.district_pop_allocated > 0:
+                break
+        
+    def f_bounds(self):
         """ Calculate the minimum and maximum population for the current district, taking debt into account. """
         lower_bound = floor(max(self.target * (1-TOLERANCE), self.target * (1-TOLERANCE) - self.debt))
         upper_bound =  ceil(min(self.target * (1+TOLERANCE), self.target * (1+TOLERANCE) - self.debt))
@@ -357,53 +397,47 @@ class Map:
     #@jit
     def update(self, allocated, pop):
         # Check: equal population
-        lower_bound, upper_bound = self.pop_bounds()
+        lower_bound, upper_bound = self.f_bounds()
+        allocated = copy(allocated)
+        next_district = False
+        #print('allocated:', self.district_pop_allocated, '\tbounds:', lower_bound, upper_bound, '\tpop:', pop)
         if self.district_pop_allocated + pop >= lower_bound:
             if self.district_pop_allocated >= lower_bound and self.district_pop_allocated + pop >= upper_bound and pop <= lower_bound:
                 # -> next district
-                self.debt += self.district_pop_allocated - self.target
-                self.current_district += 1 
-                self.district_pop_allocated = 0
-                self.vtd_by_district.append([])
-                if self.current_district == self.n_districts:
-                    self.vtd_by_district.append(self.vtd_by_district[0])
-                    self.districts[self.n_districts] = len(self.vtd_by_district[0])
-                    self.vtd_by_district[0] = 0
-                    self.districts[0] = 0
+                next_district = True
+                if self.current_district == self.n_districts - 1:
+                    self.vtd_by_district.append(copy(self.vtd_by_district[0]))
+                    self.vtd_by_district[0] = []
                     self.done = True
                     return True
-
-            elif self.district_pop_allocated + pop < upper_bound:
-                pass # proceed normally
-
-            else: # too big
+ 
+            elif self.district_pop_allocated + pop >= upper_bound: # too big
                 return False
         
         # Check: whitespace pockets
-        enclosed_whitespace, extra_vtd = self.graph.validate(allocated)
+        enclosed_whitespace = self.graph.validate(allocated)
+        self.enclosed = enclosed_whitespace
         if enclosed_whitespace:
             extra_pop = 0
-            for idx in extra_vtd:
+            for idx in enclosed_whitespace:
                 extra_pop += self.total_pop[idx]
-            print("enclosed whitespace:", extra_vtd)
-            return self.update(allocated + extra_vtd, pop + extra_pop)
+            return self.update(allocated + enclosed_whitespace, pop + extra_pop)
             
         # Update (population, VTD counts, whitespace...)
+        if next_district:
+            self.debt += self.district_pop_allocated - self.target
+            self.current_district += 1 
+            self.district_pop_allocated = 0
+            self.vtd_by_district.append([])
         self.district_pop_allocated += pop
         for idx in allocated:
+            #print('allocating', idx)
             self.vtd_by_district[0].remove(idx)
+            self.unallocated_in_city[self.vtd_to_city[idx]].remove(idx)
+            self.unallocated_in_county[self.vtd_to_county[idx]].remove(idx)
         self.vtd_by_district[self.current_district] += allocated
-        self.districts[self.current_district] += len(allocated)
-        for idx in allocated:
-            connected_to = self.ws_graph[idx]
-            for c_idx in connected_to:
-                self.ws_graph[c_idx].remove(idx)
-            del self.ws_graph[idx]
+        self.graph.allocate(allocated, next_district)
         return True
-
-    def finished(self):
-        """ Returns None if allocation is not finished; returns district array with pre-generated statistics if finished. """
-        return self.districts[0] == 0 # no more left to allocate
 
     @jit
     def abs_coords(self, x_rel, y_rel):
@@ -419,18 +453,23 @@ class Map:
 
     @jit
     def people_to_geo(self, r_P):
-        if r_P <= 0: return 0
+        if r_P <= 0:
+            return 0
+        elif r_P > self.total_pop.sum():
+            return self.max_radius
+
         a = 0
         b = self.max_radius
         # https://en.wikipedia.org/wiki/Bisection_method#Algorithm
-        for _ in range(BISECT_MAX_ITER):
+        f_a = self.local_pop(self.x, self.y, a) - r_P
+        for _ in range(BISECT_MAX_ITER):            
             c = (a+b) / 2
-            pop_c = self.local_pop(self.x, self.y, c)
-            if pop_c >= r_P * (1 - BISECT_TOLERANCE) and pop_c <= r_P * (1 + BISECT_TOLERANCE):
+            f_c = self.local_pop(self.x, self.y, c) - r_P
+            if abs(f_c) <= BISECT_REL_XTOL*r_P or b - a <= BISECT_RTOL:
                 return c
-            pop_a = self.local_pop(self.x, self.y, a)
-            if (pop_a - r_P) * (pop_c - r_P) > 0:
+            if f_a*f_c > 0:
                 a = c
+                f_a = f_c
             else:
                 b = c
         return 0
@@ -452,7 +491,7 @@ class Map:
         # TODO could this somehow be more precise?
         c_x = int(round((min_x + max_x) / 2))
         c_y = int(round((min_y + max_y) / 2))
-        r = int(min(self.max_radius, ceil(r / (0.5*(self.density_width + self.density_height)))))
+        r = int(min(self.max_radius, ceil(r_orig / (0.5*(self.density_width + self.density_height)))))
         # redefine x,y in terms of rasterization coordinates
         
         bounded = self.square_density[min_x:max_x,min_y:max_y]
@@ -466,15 +505,16 @@ class Map:
         dy = 1
         err = dx - (r << 1)
         while x > y:
-            mask[min(c_x + x - min_x, mask.shape[0]-1), min(c_y + y - min_y, mask.shape[1]-1)] = 1
-            mask[min(c_x + y - min_x, mask.shape[0]-1), min(c_y + x - min_y, mask.shape[1]-1)] = 1
-            mask[max(c_x - y - min_x, 0), min(c_y + x - min_y, mask.shape[1]-1)] = 1
-            mask[max(c_x - x - min_x, 0), min(c_y + y - min_y, mask.shape[1]-1)] = 1
             mask[max(c_x - x - min_x, 0), max(c_y - y - min_y, 0)] = 1
-            mask[max(c_x - y - min_x, 0), max(c_y - x - min_y, 0)] = 1
-            mask[min(c_x + y - min_x, mask.shape[0]-1), max(c_y - x - min_y, 0)] = 1
+            mask[max(c_x - x - min_x, 0), min(c_y + y - min_y, mask.shape[1]-1)] = 1
             mask[min(c_x + x - min_x, mask.shape[0]-1), max(c_y - y - min_y, 0)] = 1
-
+            mask[min(c_x + x - min_x, mask.shape[0]-1), min(c_y + y - min_y, mask.shape[1]-1)] = 1
+            
+            mask[max(c_x - y - min_x, 0), max(c_y - x - min_y, 0)] = 1
+            mask[max(c_x - y - min_x, 0), min(c_y + x - min_y, mask.shape[1]-1)] = 1
+            mask[min(c_x + y - min_x, mask.shape[0]-1), max(c_y - x - min_y, 0)] = 1
+            mask[min(c_x + y - min_x, mask.shape[0]-1), min(c_y + x - min_y, mask.shape[1]-1)] = 1
+            
             if err <= 0:
                 y += 1
                 err += dy
@@ -483,18 +523,50 @@ class Map:
                 x -= 1
                 dx += 2
                 err += dx - (r << 1)
-                
+
         # scanline fill
         masked = 0
         for x in range(mask.shape[0]):
             ones = np.where(mask[x] == 1)[0]
             if len(ones) > 1:
                 mask[x][ones[0]:ones[-1]+1] = 1
-                masked += (ones[-1] - ones[0] + 1)
-            
-        if masked > 0:
-            return np.sum(mask*bounded) / masked * np.pi * (r_orig ** 2) # * some big scale factor to get things in the right units
-        else:
+                masked += ones[-1] - ones[0] + 1
+
+        if masked == 0:
             x = min(max(0, floor((x - self.min_x) / self.density_width)), self.density_n_cols)
             y = min(max(0, floor((y - self.min_y) / self.density_height)), self.density_n_rows)
-            return self.square_density[x,y] * np.pi * (r_orig ** 2)
+            return min(self.square_density[x,y] * 4 * (r_orig ** 2), self.total_pop.sum())
+        
+        return min(np.mean(mask*bounded) * 4 * (r_orig ** 2), self.total_pop.sum())
+
+    def gen_alloc(self):
+        """ Refresh the 'alloc' column in self.df for debugging. """
+        alloc = np.zeros(len(self.df))
+        for district_idx, district in enumerate(self.vtd_by_district):
+            for idx in district:
+                alloc[idx] = district_idx
+        self.df['alloc'] = alloc
+
+    def plot(self, name, x=None, y=None):
+        """ Plots the map for debugging. """
+        self.gen_alloc()
+        self.df.plot(column='alloc', vmin=0, vmax=self.n_districts)
+        plt.plot(self.x, self.y, 'g+')
+        if x and y:
+            plt.plot(x, y, 'r+')
+        plt.savefig(name, bbox_inches='tight')
+        plt.close()
+
+    @jit
+    def true_local_pop(self, x, y, r):
+        """
+        Calculates local population by geometric intersection.
+        More precise but much slower than the rasterization-based method; included for validation.
+        """
+        bounds = Point((x, y)).buffer(r)
+        pop = 0
+        for fid in list(self.vtd_idx.intersection(bounds.bounds)):
+            if getattr(self.df.iloc[fid], 'geometry').intersects(bounds):
+                intersect = getattr(self.df.iloc[fid], 'geometry').buffer(0).intersection(bounds).area
+                pop += self.total_pop[fid] * (intersect / getattr(self.df.iloc[fid], 'geometry').area) 
+        return pop

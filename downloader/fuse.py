@@ -133,7 +133,6 @@ def fuse_PA(filenames, sources):
             except KeyError:
                 not_found += 1
         print("\tWarning: %d precincts in OpenElections data (%d) not found in Harvard Dataverse data." % (not_found, year))
-
     pd.DataFrame(vote_cols).to_csv(FILENAMES['elections'], index=False)  
 
 def fuse_WI(filenames, sources):

@@ -13,5 +13,8 @@ cdef extern from "graph.h" namespace "graph":
         bool shared_border(vector[int], bool)
         bool contiguous(vector[int])
         vector[int] validate(vector[int])
+        vector[int] border_vtds(vector[int])
+        vector[int] unallocated_on_border(int)
         void allocate(vector[int], bool)
         void print_neighbors(int) # for debugging
+        void reset_district()

@@ -1,11 +1,12 @@
-from map import Map
 """
 Wrapper code to import per-state processed data (as downloaded by the downloader script) and apply a bit more transformation.
 """
-
+from map import Map
+from random import choice
 import pandas    as  pd
 import geopandas as gpd
 import numpy     as  np
+import rtree
 import warnings
 
 # as of 2010
@@ -14,6 +15,8 @@ N_DISTRICTS = {
     "PA": 18,
     "WI": 8 
 }
+# TODO move to a less global place
+PHILADELPHIA_PARTITIONS = ['102', '104', '106'] # artificial counties
 
 """
 Conventions:
@@ -51,7 +54,7 @@ class Wisconsin(Map):
 
 class Pennsylvania(Map):
     # TODO: add county map?
-    def __init__(self, vtd_map_file, vtd_elections_file, vtd_demographics_file, resolution, decay):
+    def __init__(self, vtd_map_file, vtd_elections_file, vtd_demographics_file, density_resolution, geo_resolution):
         vtd_map          = gpd.read_file(vtd_map_file)
         vtd_elections    = pd.read_csv(vtd_elections_file)
         vtd_demographics = pd.read_csv(vtd_demographics_file)
@@ -113,17 +116,36 @@ class Pennsylvania(Map):
         self.df = gpd.GeoDataFrame(data=columns)
         self.df.crs = vtd_map.crs
         self.df['total_pop'] = self.df['white_pop'] + self.df['minority_pop']
+        self.n_districts =  N_DISTRICTS["PA"]
 
         keywords = ["VTD", "Voting District", "WD", "DISTRICT", "PRECINCT", "TWP", "PCT", "DIST", "TOWNSHIP", "CITY", "BORO", "BOROUGH", "TOWN", "CITY"]
         for i in range(1, 10): keywords.append(str(i)) # integers 1-9
         cities = []
+        counties = []
         for row in self.df.itertuples():
             city = getattr(row, 'name')
-            for k in keywords:
-                city = city.split(' ' + k)[0]
+            if city.startswith("PHILADELPHIA") or city.startswith("PITTSBURGH"):
+                """
+                Philadelphia is the USA's 6th-largest city, so it can't fit within the confines of a single district!
+                One way to efficiently get around this is to break the city up into wards and treat each ward as a city.
+                
+                Pittsburgh is also reasonably large (~350k people, or about half a district).
+                """
+                city = city.split(" PCT")[0].split(" DIST")[0]
+            else:
+                for k in keywords:
+                    city = city.split(' ' + k)[0]
             cities.append(city)
+
+            """ Furthermore, we randomly partition Philadelphia County by ward into smaller artifical counties. """
+            if row.county == '101': # Philadelphia County code
+                counties.append(choice(PHILADELPHIA_PARTITIONS))
+            else:
+                counties.append(row.county)
+        
+        self.df['county'] = counties
         self.df['city'] = cities
-        super().__init__(resolution, decay)
+        super().__init__(density_resolution, geo_resolution)
 
 
         """
