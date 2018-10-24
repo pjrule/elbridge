@@ -8,4 +8,5 @@ downloader/PA
 *.tab
 .vscode
 .DS_Store
-*.pkl
+#*.pkl
+*.so
