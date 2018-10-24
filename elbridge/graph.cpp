@@ -66,24 +66,83 @@ namespace graph {
         }
     }
 
-    bool Graph::shared_border(std::vector<int> unallocated, bool prev){
+    bool Graph::shared_border(std::vector<int> unallocated, bool any){
         /* Given an array of VTD IDs, determine whether at least one of the VTDs is contiguous to the current (or prev) district. */
-        if(curr_district == 0){ return true; } // nothing allocated yet
-        for(int unalloc_vtd: unallocated){
-            if(prev){
-                auto vtds = prev_vtds;
-            } else {
-                auto vtds = curr_vtds;
+        std::vector<int> neighbor_vtds = curr_vtds;
+        if(any){
+            for(int unalloc_vtd: unallocated){
+                for(auto vtd: vtds){
+                    if(vtd.second.get_district() != NO_DISTRICT){
+                        bool neighboring = vtd.second.is_neighbor(unalloc_vtd);
+                        if(neighboring){
+                            return true;
+                        }
+                    }
+                }
             }
-            for(auto vtd: vtds){
-                bool neighboring = vtd.second.is_neighbor(unalloc_vtd);
-                if(neighboring){
-                    return true;
+        } else {
+            for(int unalloc_vtd: unallocated){
+                for(int vtd: neighbor_vtds){
+                    bool neighboring = vtds.at(vtd).is_neighbor(unalloc_vtd);
+                    if(neighboring){
+                        return true;
+                    }
                 }
             }
         }
         return false;
     }
+
+    std::vector<int> Graph::border_vtds(std::vector<int> unallocated){
+        /* 
+         * Given an array of IDs of unallocated VTDs, determine which of the VTDs are on the border of the allocation.
+         * A VTD is said to be on the border of an allocation if, after the allocation, it will have at least one unallocated neighbor.
+         */
+        std::sort(unallocated.begin(), unallocated.end());
+        std::vector<bool> on_border(vtds.size());
+        for(int vtd_idx: unallocated){
+            auto vtd = vtds.at(vtd_idx);
+            int district = vtd.get_district();
+            if(!on_border[district]){
+                for(auto neighbor_vtd: vtd.neighbors){
+                    bool in_unallocated = std::binary_search(unallocated.begin(), unallocated.end(), neighbor_vtd->get_id());
+                    if(neighbor_vtd->get_district() == NO_DISTRICT && !in_unallocated){
+                        on_border[vtd.get_id()] = true;
+                        break;
+                    }
+                }
+            }
+        }
+        std::vector<int> on_border_ids;
+        for(int idx = 0; idx < on_border.size(); idx++){
+            if(on_border[idx]){
+                on_border_ids.push_back(idx);
+            }            
+        }
+        return on_border_ids;
+    }
+
+    std::vector<int> Graph::unallocated_on_border(int district){
+        /* Returns the IDs of the unallocated VTDs on the border of a given district. */
+        std::vector<bool> on_border(vtds.size());
+        for(auto vtd: vtds){
+            if(vtd.second.get_district() == district){
+                for(auto neighbor_vtd: vtd.second.neighbors){
+                    if(neighbor_vtd->get_district() == NO_DISTRICT){
+                        on_border[neighbor_vtd->get_id()] = true;
+                    }
+                }
+            }
+        }
+        std::vector<int> on_border_ids;
+        for(int idx = 0; idx < on_border.size(); idx++){
+            if(on_border[idx]){
+                on_border_ids.push_back(idx);
+            }            
+        }
+        return on_border_ids;
+    }
+
 
     bool Graph::contiguous(std::vector<int> unallocated){
         /*
@@ -96,47 +155,41 @@ namespace graph {
         */
 
         // 1. the VTDs are contiguous w.r.t. each other
-        // TODO there's probably a more efficient way to do this, though this should be fine in most cases
+        // DFS basically copied from validate()
         if(unallocated.size() > 1){
-            for(int outer_vtd: unallocated){
-                bool contiguous = false;
-                for(auto neighbor: vtds.at(outer_vtd).neighbors){
-                    int neighbor_id = neighbor->get_id();
-                    if(vtds.at(neighbor_id).get_district() != NO_DISTRICT){ continue; }
-                    // TODO binary search? (performance gains probably negligible)
-                    for(int inner_vtd: unallocated) {
-                        if(inner_vtd == neighbor_id){
-                            contiguous = true;
-                            break;
-                        }
+            std::stack<int> to_visit;
+            std::vector<int> visited(vtds.size());
+
+            std::sort(unallocated.begin(), unallocated.end());
+            to_visit.push(unallocated[0]);
+            while(!to_visit.empty()){
+                int vtd = to_visit.top();
+                to_visit.pop();
+                //visited[vtd] = true;
+                for(auto n: vtds.at(vtd).neighbors){
+                    bool vtd_in_unallocated = std::binary_search(unallocated.begin(), unallocated.end(), n->get_id());
+                    if(n->get_district() == NO_DISTRICT && !visited[n->get_id()] && vtd_in_unallocated){
+                        to_visit.push(n->get_id());
+                        visited[n->get_id()] = true;
                     }
-                    if(contiguous){ break; }
                 }
-                if(!contiguous){ return false; }
+            }
+            int contiguous = 0;
+            for(bool v: visited){
+                if(v){ contiguous += 1; }
+            }
+            if(contiguous < unallocated.size()){
+                return false;
             }
         }
-
         // 2c: no districts have been allocated yet
         if(curr_district == NO_DISTRICT) { return true; }
         // 2a: at least one of the VTDs is contiguous to the current district
-        // 2b: at least one of the VTDs if contiguous to the previous district (if current district has no VTDs)
-        std::unordered_map<int, VTD> district_vtds;
+        // 2b: at least one of the VTDs if contiguous to another district        
         if(curr_vtds.size() > 0){
-            district_vtds = curr_vtds;
-        } else {
-            district_vtds = prev_vtds;
-        }
-        // get vector of district VTD ids; sort; for each unallocated VTD, check contiguity
-        std::vector<int> vtd_ids(district_vtds.size());
-        int idx = 0;
-        for(auto a: district_vtds){
-            vtd_ids.push_back(a.second.get_id());
-            idx++;
-        }
-        if(curr_vtds.size() > 0){
-                return shared_border(vtd_ids, false);
+            return shared_border(unallocated, false);
         } 
-        return shared_border(vtd_ids, true);
+        return shared_border(unallocated, true);
     }
 
     std::vector<int> Graph::validate(std::vector<int> unallocated){
@@ -171,7 +224,9 @@ namespace graph {
         }
 
         // whitespace not divided--no VTDs surrounded
-        if(ws_visited == ws_left - unallocated.size()){ return std::vector<int>(0); }
+        if(ws_visited == ws_left - unallocated.size()){
+            return std::vector<int>(0);
+        }
 
         std::vector<int> surrounded;
         if(ws_visited > (ws_left - ws_visited - unallocated.size())){
@@ -192,6 +247,7 @@ namespace graph {
                 }
             }
         } 
+        // TODO: return both large and small parts
         return surrounded;
     }
 
@@ -200,17 +256,32 @@ namespace graph {
         Allocate an array of VTDs to the current district.
         Assumes that the allocation has already between validated.
         */
-        if(next){ next_district(); }
+        if(next || (curr_district == 0 && unallocated.size() > 0)){
+            next_district();
+        }
         for(int vtd: unallocated){
             if(vtds.find(vtd) != vtds.end()){
                 vtds.at(vtd).set_district(curr_district);
+                curr_vtds.push_back(vtd);
             }
         }
+        ws_left -= unallocated.size();
+    }
+
+    void Graph::reset_district(){
+        /* Return all VTDs in the current district to an unallocated state. */
+        for(int idx = 0; idx < vtds.size(); idx++){
+            if(vtds.at(idx).get_district() == curr_district){
+                vtds.at(idx).set_district(NO_DISTRICT);
+                ws_left++;
+            }   
+        }
+        curr_vtds.clear();
     }
 
     void Graph::next_district(){
         curr_district++;
-        std::unordered_map<int, VTD> _prev;
+        std::vector<int> _prev;
         _prev = curr_vtds;
         curr_vtds.clear();
         prev_vtds = _prev;
@@ -221,5 +292,9 @@ namespace graph {
         for(auto a: vtds.at(id).neighbors){
             std::cout << "\tneighbor id: " << a->get_id() << "\tdistrict: " << a->get_district() << "\tneighbors: " << a->neighbors.size() << std::endl; 
         }
+    }
+
+    void Graph::print_curr_district(){
+        std::cout << curr_district << std::endl;
     }
 }
