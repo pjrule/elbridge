@@ -4,12 +4,13 @@ import rtree
 import scipy.sparse
 import scipy.optimize
 import tqdm
+import json
 import elbridge.mapgraph as mg
+import pysal
 from shapely.geometry import Polygon
 from geopandas.geoseries import GeoSeries, Point
 from shapely.prepared import prep
 from collections import defaultdict
-import pysal
 from copy import copy, deepcopy
 from random import choice, randint, random, shuffle
 from numba import jit
@@ -50,8 +51,9 @@ class Map:
         https://lehd.ces.census.gov/doc/help/onthemap/OnTheMapImportTools.pdf
         http://spatialreference.org/ref/esri/usa-contiguous-albers-equal-area-conic/
         """
-        self.df = self.df.to_crs({'init': 'esri:102003'})
+        #self.df = self.df.to_crs({'init': 'esri:102003'})
         self.adj = pysal.weights.Rook.from_dataframe(self.df)
+        self.df['old_idx'] = [[idx] for idx in range(len(self.df))]
         
         # Two VTDs in Wisconsin consist entirely of islands. 
         # For simplicity, we will fuse islands with their nearest neighbors by centroid distance.
@@ -75,10 +77,17 @@ class Map:
                 for col in self.df.columns:
                     if col.startswith('dv') or col.startswith('rv') or col.endswith('pop'):
                         self.df.loc[closest_idx,col] += self.df.loc[island_idx,col]
+                    self.df.loc[closest_idx,'old_idx'].append(island_idx)
             
             self.df = self.df.drop(self.adj.islands).reset_index()
             self.adj = pysal.weights.Rook.from_dataframe(self.df) # recalculate
+            # map old VTD indexes to new VTD indexes
+            self.vtd_mapping = {}
+            for idx, row in self.df.iterrows():
+                for old_idx in row['old_idx']:
+                    self.vtd_mapping[old_idx] = idx
     
+        self.df = self.df.drop(columns='old_idx')
         self.total_pop = np.array(self.df['white_pop'] + self.df['minority_pop'])
         self.pop_left = np.sum(self.total_pop)
         self.target = self.pop_left / self.n_districts
@@ -479,7 +488,6 @@ class Map:
         """
         Estimate the population within a circle of radius r with center (x,y).
         Doesn't work well for very large radii; this is intended to be rather rough.
-
         """ 
         # TODO add bounds and then be done!
         if r <= 0: return 0
@@ -556,6 +564,27 @@ class Map:
             plt.plot(x, y, 'r+')
         plt.savefig(name, bbox_inches='tight')
         plt.close()
+
+    def annotate_networkx_graph(self, graph):
+        """
+        Annotates a GerryChain-format networkx graph with the state of
+        the map's internal graph.
+
+        Algorithm:
+        - Load a networkx graph that matches the shapefile used to create 
+        `self.df`.
+        - Using `self.vtd_mapping` to map the indexes in the shapefile to the 
+          indexes used in the internal graph, label each node of the networkx
+          graph based on its label in the internal graph.
+        
+        :param graph: the networkx graph to label.
+
+        Returns: a copy of the input graph with relabeled nodes.
+        """
+        annotated = deepcopy(graph)
+
+
+
 
     @jit
     def true_local_pop(self, x, y, r):

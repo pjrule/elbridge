@@ -10,3 +10,4 @@ downloader/PA
 .DS_Store
 #*.pkl
 *.so
+*.npz

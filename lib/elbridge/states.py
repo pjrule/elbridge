@@ -1,7 +1,7 @@
 """
 Wrapper code to import per-state processed data (as downloaded by the downloader script) and apply a bit more transformation.
 """
-from map import Map
+from elbridge.map import Map
 from random import choice
 import pandas    as  pd
 import geopandas as gpd
@@ -24,6 +24,28 @@ rv_vote_share = rv / (dv+rv), but if dv+rv = 0, we let rv_vote_share = 0.
 This won't ultimately affect the final vote tally in each district when evaluating maps--the precinct simply will not count, as raw votes are summed.
 The same convention applies to U.S. Census population totals.
 """
+class WisconsinMGGG(Map):
+    def __init__(self, ward_map_file, density_resolution, geo_resolution):
+        """
+        Loads data for Wisconsin using MGGG's shapefile.
+        Vote totals are omitted, as they are not necessary for the current
+        allocation process.
+        """
+        ward_map = gpd.read_file(ward_map_file)
+        cities = [name.split(' - ')[0] for name in ward_map['NAME']]
+        columns = {
+            "geo_id":       ward_map['GEOID10'],
+            "geometry":     ward_map['geometry'],
+            "county":       ward_map['CNTY_NAME'],
+            "city":         cities,
+            "white_pop":    ward_map['WHITE'],
+            "minority_pop": ward_map['PERSONS'] - ward_map['WHITE']
+        }
+        self.df = gpd.GeoDataFrame(columns)
+        self.df.crs = ward_map.crs
+        self.n_districts = N_DISTRICTS["WI"]
+
+        super().__init__(density_resolution, geo_resolution)
 
 class Wisconsin(Map):
     def __init__(self, ward_map_file, vtd_elections_file, vtd_demographics_file, density_resolution, geo_resolution):
