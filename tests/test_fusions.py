@@ -4,8 +4,9 @@ from shapely.geometry import box
 from libpysal.weights import Rook
 from elbridge.fusions import fuse_islands, fuse_enclosed
 
+
 # filter PySAL's disconnected observations warning (expected)
-@pytest.mark.filterwarnings("ignore::UserWarning") 
+@pytest.mark.filterwarnings("ignore::UserWarning")
 def test_fuse_islands_one_island():
     # Create a GeoDataFrame and an adjacency matrix for a map with
     # a mainland (two adjacent VTDs) and an island (one free-standing VTD).
@@ -19,7 +20,7 @@ def test_fuse_islands_one_island():
 
 
 # filter PySAL's disconnected observations warning (expected)
-@pytest.mark.filterwarnings("ignore::UserWarning") 
+@pytest.mark.filterwarnings("ignore::UserWarning")
 def test_fuse_islands_two_islands():
     # Create a GeoDataFrame and an adjacency matrix for a map with
     # a mainland (two adjacent VTDs) and two islands (two free-standing VTDs).
