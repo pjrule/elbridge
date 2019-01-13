@@ -17,7 +17,8 @@ def test_fuse_islands_one_island():
     # a mapping from the island to that VTD.
     assert fuse_islands(gdf, adj) == {2: 1}
 
-    # filter PySAL's disconnected observations warning (expected)
+
+# filter PySAL's disconnected observations warning (expected)
 @pytest.mark.filterwarnings("ignore::UserWarning") 
 def test_fuse_islands_two_islands():
     # Create a GeoDataFrame and an adjacency matrix for a map with
