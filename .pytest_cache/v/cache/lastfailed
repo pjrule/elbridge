@@ -1,0 +1,6 @@
+{
+  "tests/test_bitmap.py::test_bounding_box[grid_3x5]": true,
+  "tests/test_bitmap.py::test_mask[0]": true,
+  "tests/test_bitmap.py::test_people_to_geo": true,
+  "tests/test_bitmap.py::test_people_to_geo_uniform_density": true
+}

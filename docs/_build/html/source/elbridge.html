@@ -1,0 +1,334 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>elbridge package &mdash; elbridge  documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+
+  
+  
+    
+
+  
+
+  <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" /> 
+
+  
+  <script src="../_static/js/modernizr.min.js"></script>
+
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search">
+          
+
+          
+            <a href="../index.html" class="icon icon-home"> elbridge
+          
+
+          
+          </a>
+
+          
+            
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <!-- Local TOC -->
+              <div class="local-toc"><ul>
+<li><a class="reference internal" href="#">elbridge package</a><ul>
+<li><a class="reference internal" href="#submodules">Submodules</a></li>
+<li><a class="reference internal" href="#module-elbridge.bitmap">elbridge.bitmap module</a></li>
+<li><a class="reference internal" href="#module-elbridge.errors">elbridge.errors module</a></li>
+<li><a class="reference internal" href="#module-elbridge.fusions">elbridge.fusions module</a></li>
+<li><a class="reference internal" href="#module-elbridge.gerrychain">elbridge.gerrychain module</a></li>
+<li><a class="reference internal" href="#module-elbridge.graph">elbridge.graph module</a></li>
+<li><a class="reference internal" href="#elbridge-map-module">elbridge.map module</a></li>
+<li><a class="reference internal" href="#module-elbridge.plan">elbridge.plan module</a></li>
+<li><a class="reference internal" href="#elbridge-states-module">elbridge.states module</a></li>
+<li><a class="reference internal" href="#module-elbridge">Module contents</a></li>
+</ul>
+</li>
+</ul>
+</div>
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">elbridge</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="../index.html">Docs</a> &raquo;</li>
+        
+      <li>elbridge package</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+            
+            <a href="../_sources/source/elbridge.rst.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <div class="section" id="elbridge-package">
+<h1>elbridge package<a class="headerlink" href="#elbridge-package" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="submodules">
+<h2>Submodules<a class="headerlink" href="#submodules" title="Permalink to this headline">¶</a></h2>
+</div>
+<div class="section" id="module-elbridge.bitmap">
+<span id="elbridge-bitmap-module"></span><h2>elbridge.bitmap module<a class="headerlink" href="#module-elbridge.bitmap" title="Permalink to this headline">¶</a></h2>
+<dl class="class">
+<dt id="elbridge.bitmap.Bitmap">
+<em class="property">class </em><code class="descclassname">elbridge.bitmap.</code><code class="descname">Bitmap</code><span class="sig-paren">(</span><em>gdf</em>, <em>proj</em>, <em>density_resolution</em>, <em>district_resolution</em>, <em>bisect_rtol=0.0001</em>, <em>bisect_rel_xtol=0.01</em>, <em>bisect_max_iter=80</em>, <em>density_bitmap=''</em>, <em>district_bitmap=''</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/elbridge/bitmap.html#Bitmap"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#elbridge.bitmap.Bitmap" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+</dd></dl>
+
+</div>
+<div class="section" id="module-elbridge.errors">
+<span id="elbridge-errors-module"></span><h2>elbridge.errors module<a class="headerlink" href="#module-elbridge.errors" title="Permalink to this headline">¶</a></h2>
+<p>Custom errors for elbridge.</p>
+<dl class="exception">
+<dt id="elbridge.errors.ContiguityError">
+<em class="property">exception </em><code class="descclassname">elbridge.errors.</code><code class="descname">ContiguityError</code><a class="reference internal" href="../_modules/elbridge/errors.html#ContiguityError"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#elbridge.errors.ContiguityError" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Exception</span></code></p>
+<p>Raised when an invalid contiguity criterion is passed
+to the Plan constructor.</p>
+</dd></dl>
+
+</div>
+<div class="section" id="module-elbridge.fusions">
+<span id="elbridge-fusions-module"></span><h2>elbridge.fusions module<a class="headerlink" href="#module-elbridge.fusions" title="Permalink to this headline">¶</a></h2>
+<dl class="class">
+<dt id="elbridge.fusions.EnclosedFusion">
+<em class="property">class </em><code class="descclassname">elbridge.fusions.</code><code class="descname">EnclosedFusion</code><a class="reference internal" href="../_modules/elbridge/fusions.html#EnclosedFusion"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#elbridge.fusions.EnclosedFusion" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+</dd></dl>
+
+<dl class="class">
+<dt id="elbridge.fusions.IslandFusion">
+<em class="property">class </em><code class="descclassname">elbridge.fusions.</code><code class="descname">IslandFusion</code><a class="reference internal" href="../_modules/elbridge/fusions.html#IslandFusion"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#elbridge.fusions.IslandFusion" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+</dd></dl>
+
+</div>
+<div class="section" id="module-elbridge.gerrychain">
+<span id="elbridge-gerrychain-module"></span><h2>elbridge.gerrychain module<a class="headerlink" href="#module-elbridge.gerrychain" title="Permalink to this headline">¶</a></h2>
+</div>
+<div class="section" id="module-elbridge.graph">
+<span id="elbridge-graph-module"></span><h2>elbridge.graph module<a class="headerlink" href="#module-elbridge.graph" title="Permalink to this headline">¶</a></h2>
+<dl class="class">
+<dt id="elbridge.graph.Graph">
+<em class="property">class </em><code class="descclassname">elbridge.graph.</code><code class="descname">Graph</code><a class="reference internal" href="../_modules/elbridge/graph.html#Graph"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#elbridge.graph.Graph" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+</dd></dl>
+
+</div>
+<div class="section" id="elbridge-map-module">
+<h2>elbridge.map module<a class="headerlink" href="#elbridge-map-module" title="Permalink to this headline">¶</a></h2>
+</div>
+<div class="section" id="module-elbridge.plan">
+<span id="elbridge-plan-module"></span><h2>elbridge.plan module<a class="headerlink" href="#module-elbridge.plan" title="Permalink to this headline">¶</a></h2>
+<dl class="class">
+<dt id="elbridge.plan.Plan">
+<em class="property">class </em><code class="descclassname">elbridge.plan.</code><code class="descname">Plan</code><span class="sig-paren">(</span><em>shapefile: str</em>, <em>n_districts: int</em>, <em>density_resolution: int</em>, <em>district_resolution: int</em>, <em>pop_col: str = 'total_pop'</em>, <em>proj: str = 'esri:102003'</em>, <em>contiguity: str = 'rook'</em>, <em>pop_tolerance: float = 0.01</em>, <em>density_bitmap: str = ''</em>, <em>district_bitmap: str = ''</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/elbridge/plan.html#Plan"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#elbridge.plan.Plan" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Represents a districting plan, which maps voting districts (VTDs) to
+congressional districts. For elbridge’s purposes, a districting plan
+contains a graph of VTDs and several continuously updated bitmaps
+that represent the plan’s geometry and population density.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>shapefile</strong> – The path of the shapefile containing the plan’s
+underlying geographical and population data.</li>
+<li><strong>n_districts</strong> – The number of congressional districts to be
+allocated by the plan. This should correspond to the number of
+congressional districts allocated to the state based on the latest
+U.S. Census.</li>
+<li><strong>density_resolution</strong> – The approximate resolution (in pixels) of
+the population density bitmap used for area-based population
+estimations.</li>
+<li><strong>district_resolution</strong> – The approximate resolution (in pixels) of
+the bitmap used to render the districting plan (intended as input
+into a CNN-based model).</li>
+<li><strong>pop_col</strong> – The column in the shapefile with the total population
+of each VTD.</li>
+<li><strong>proj</strong> – The map projection used for the shapefile. Defaults to
+USA Contiguous Albers Equal Area Conic (ESRI:102003). If <code class="docutils literal notranslate"><span class="pre">None</span></code>,
+the shapefile’s original projection is retained.</li>
+<li><strong>contiguity</strong> – The contiguity criterion used to generate the
+adjacency matrix of the VTDs. Options: <code class="docutils literal notranslate"><span class="pre">rook</span></code> (contiguous
+edges) and <code class="docutils literal notranslate"><span class="pre">queen</span></code> (contiguous edges and vertices).</li>
+<li><strong>pop_tolerance</strong> – The tolerance on the equal population constraint.
+Defaults to 1%, which is roughly consistent with currently enacted
+districting plans.</li>
+<li><strong>density_bitmap</strong> – The path of a precomputed density bitmap. If
+the bitmap does not exist at the path, it is generated and saved at
+the path.</li>
+<li><strong>district_bitmap</strong> – The path of a precomputed district bitmap. If
+the bitmap does not exist at the path, it is generated and saved at
+the path.</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</div>
+<div class="section" id="elbridge-states-module">
+<h2>elbridge.states module<a class="headerlink" href="#elbridge-states-module" title="Permalink to this headline">¶</a></h2>
+</div>
+<div class="section" id="module-elbridge">
+<span id="module-contents"></span><h2>Module contents<a class="headerlink" href="#module-elbridge" title="Permalink to this headline">¶</a></h2>
+</div>
+</div>
+
+
+           </div>
+           
+          </div>
+          <footer>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2019, Parker J. Rule
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  
+
+    
+    
+      <script type="text/javascript">
+          var DOCUMENTATION_OPTIONS = {
+              URL_ROOT:'../',
+              VERSION:'',
+              LANGUAGE:'None',
+              COLLAPSE_INDEX:false,
+              FILE_SUFFIX:'.html',
+              HAS_SOURCE:  true,
+              SOURCELINK_SUFFIX: '.txt'
+          };
+      </script>
+        <script type="text/javascript" src="../_static/jquery.js"></script>
+        <script type="text/javascript" src="../_static/underscore.js"></script>
+        <script type="text/javascript" src="../_static/doctools.js"></script>
+        <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    
+
+  
+
+  <script type="text/javascript" src="../_static/js/theme.js"></script>
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
