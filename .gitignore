@@ -127,3 +127,4 @@ downloader/PA
 *.npz
 
 elbridge/cgraph/cgraph.cpp
+docs/_build/
