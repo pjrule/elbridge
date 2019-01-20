@@ -11,8 +11,8 @@ geopandas==0.4.0
 kiwisolver==1.0.1
 libpysal==4.0.1
 llvmlite==0.27.0
-mkl-fft==1.0.10
-mkl-random==1.0.2
+mkl-fft>=1.0.6
+mkl-random>=1.0.1.1
 more-itertools==5.0.0
 munch==2.3.2
 mypy==0.660
