@@ -1,6 +1,6 @@
 import rtree  # type: ignore
 import scipy  # type: ignore
-import warnings 
+import warnings
 import numpy as np  # type: ignore
 from numba import jit  # type: ignore
 from math import ceil

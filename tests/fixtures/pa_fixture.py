@@ -1,5 +1,5 @@
-""" Script for reproducibly creating the pa129 fixture. """
 #!/usr/bin/env python
+""" Script for reproducibly creating the pa129 fixture. """
 import os
 import sys
 import geopandas as gpd
@@ -10,11 +10,11 @@ from urllib.request import urlretrieve
 PA_DATA_ZIP = "https://github.com/mggg-states/PA-shapefiles/raw/" \
               "a9fa163573c68338b42129ac4784ec179ef32a27/PA/PA_VTD.zip"
 PA_FILENAME = "PA_VTD.zip"
-PA_DIR      = "PA_VTD"
-PA_SHP      = "PA_VTD.shp"
-OUT_DIR     = "pa129"
-OUT_SHP     = "pa129.shp"
-PA_COUNTY   = "129"
+PA_DIR = "PA_VTD"
+PA_SHP = "PA_VTD.shp"
+OUT_DIR = "pa129"
+OUT_SHP = "pa129.shp"
+PA_COUNTY = "129"
 
 if __name__ == "__main__":
     if not os.path.isdir(PA_DIR):

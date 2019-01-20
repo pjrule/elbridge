@@ -55,4 +55,3 @@ def test_fuse_enclosed_with_adjacent_vtds():
 
     # We do not expect to find any enclosed VTDs.
     assert fuse_enclosed(gdf, adj) == {}
-
