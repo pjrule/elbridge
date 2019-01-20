@@ -1,3 +1,4 @@
-from cgraph import CGraph  # pylint: disable=E0401
+# pylint: disable=E0401,E0611
+from .cgraph import CGraph  # type: ignore
 
 __all__ = ['CGraph', ]

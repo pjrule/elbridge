@@ -1,13 +1,13 @@
 """
 Methods for identifying VTDs that should always be allocated together.
 """
-import numpy as np
+import numpy as np  # type: ignore
 from typing import Dict, List
-from geopandas import GeoDataFrame
-from libpysal.weights import W
+from geopandas import GeoDataFrame  # type: ignore
+from libpysal.weights import W  # type: ignore
 
 
-def fuse_islands(gdf: GeoDataFrame, adj: W) -> Dict[int, List[int]]:
+def fuse_islands(gdf: GeoDataFrame, adj: W) -> Dict[int, int]:
     """
     Generates a fusion mapping for islands.
     Islands are fused with the nearest inland VTD by centroid distance.
@@ -31,17 +31,16 @@ def fuse_islands(gdf: GeoDataFrame, adj: W) -> Dict[int, List[int]]:
         for island_idx, island in enumerate(adj.islands):
             closest_dist = np.max(distances[island_idx])
             closest_idx = 0
-            for vtd_idx, dist in enumerate(list(distances[island_idx])):
-                if (dist > 0 and dist < closest_dist and
+            for vtd_idx, vtd_dist in enumerate(list(distances[island_idx])):
+                if (vtd_dist > 0 and vtd_dist < closest_dist and
                    vtd_idx not in adj.islands):
-                    closest_dist = dist
+                    closest_dist = vtd_dist
                     closest_idx = vtd_idx
             closest[island] = closest_idx
     return closest
 
 
-def fuse_enclosed(gdf: GeoDataFrame, adj: W) \
-     -> Dict[int, List[int]]:
+def fuse_enclosed(gdf: GeoDataFrame, adj: W) -> Dict[int, int]:
     """
     Generates a fusion mapping for VTDs that are completely enclosed within
     other VTDs.
