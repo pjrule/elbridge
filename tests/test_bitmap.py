@@ -228,5 +228,5 @@ def test_mask_zero():
 
 def test_bound():
     assert _bound(-1, 0, 5) == 0
-    assert _bound(2.5, 0, 5) == 2.5
+    assert _bound(2.5, 0, 5) == 2
     assert _bound(6, 0, 5) == 5

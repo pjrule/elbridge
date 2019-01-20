@@ -1,12 +1,12 @@
-import rtree
-import scipy
-import warnings
-import numpy as np
-from numba import jit
+import rtree  # type: ignore
+import scipy  # type: ignore
+import warnings 
+import numpy as np  # type: ignore
+from numba import jit  # type: ignore
 from math import ceil
-from geopandas import GeoDataFrame
-from shapely.geometry import Point, box
-from shapely.topology import TopologicalError
+from geopandas import GeoDataFrame  # type: ignore
+from shapely.geometry import Point, box  # type: ignore
+from shapely.topology import TopologicalError  # type: ignore
 from typing import Dict, Generator, Tuple
 
 
@@ -198,10 +198,7 @@ class Bitmap:
         r = int((r_abs / density_dim))
 
         bounded = self.density_map[min_x:max_x+1, min_y:max_y+1]
-        print(min_x, max_x, min_y, max_y, c_x, c_y, r)
         mask, masked = _mask(min_x, max_x, min_y, max_y, c_x, c_y, r)
-        print(mask)
-        print(masked)
 
         # If no pixels are masked, we approximate population based on
         # the center pixel
@@ -213,7 +210,7 @@ class Bitmap:
             est_pop = np.sum(mask * bounded) / masked * 4 * (r_abs ** 2)
         return min(est_pop, self.state_pop)
 
-    def abs_coords(self, x_rel: float, y_rel: float) -> Tuple[float]:
+    def abs_coords(self, x_rel: float, y_rel: float) -> Tuple[float, float]:
         """
         Converts relative coordinates (proportional distances along the
         axes of the rectangular bounding box) to absolute coordinates (defined
@@ -227,7 +224,7 @@ class Bitmap:
         y_abs = (y_rel * (self.max_y - self.min_y)) + self.min_y
         return (x_abs, y_abs)
 
-    def rel_coords(self, x_abs: float, y_abs: float) -> Tuple[float]:
+    def rel_coords(self, x_abs: float, y_abs: float) -> Tuple[float, float]:
         """
         Converts absolute coordinates (defined by the map's coordinate system)
         to relative coordinates (proportional distances along the axes of the
@@ -459,7 +456,7 @@ def _mask(min_x: int, max_x: int, min_y: int, max_y: int,
     return mask, masked
 
 
-def _bound(val: float, min_val: float, max_val: float) -> float:
+def _bound(val: int, min_val: int, max_val: int) -> int:
     if val < min_val:
         return min_val
     elif val > max_val:
