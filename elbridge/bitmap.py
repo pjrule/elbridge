@@ -7,7 +7,7 @@ from math import ceil
 from geopandas import GeoDataFrame  # type: ignore
 from shapely.geometry import Point, box  # type: ignore
 from shapely.topology import TopologicalError  # type: ignore
-from typing import Dict, Generator, Tuple
+from typing import Dict, Generator, Tuple, Any
 
 
 class Bitmap:
@@ -286,8 +286,7 @@ class Bitmap:
                     density_map[row, col] += overlap * density[fid]
         return density_map
 
-    def _district_map(self, resolution: int) \
-            -> Tuple[scipy.sparse.csr_matrix, int, int]:
+    def _district_map(self, resolution: int) -> Tuple[Any, int, int]:
         """
         Renders a district map, which maps VTD indices to regions in the
         map's rectangular bounding box for easy rendering of the districting
@@ -297,7 +296,8 @@ class Bitmap:
             value but may vary slightly to ensure the creation of a valid
             rectangle with integer-pixel side lengths.
 
-        Returns: (district map, columns in bitmap, rows in bitmap)
+        Returns: (district map as a SciPy CSR-formatted sparse matrix,
+                  columns in bitmap, rows in bitmap)
         """
         s_len = np.sqrt(resolution / self.alpha)
         n_rows = int(np.ceil(s_len))

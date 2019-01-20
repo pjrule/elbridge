@@ -2,7 +2,7 @@
 Methods for identifying VTDs that should always be allocated together.
 """
 import numpy as np  # type: ignore
-from typing import Dict, List
+from typing import Dict
 from geopandas import GeoDataFrame  # type: ignore
 from libpysal.weights import W  # type: ignore
 

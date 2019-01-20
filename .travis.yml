@@ -6,8 +6,9 @@ before_install:
   - sudo apt-get install -y libspatialindex-dev
 install:
   - pip install -r requirements.txt
-  - pip install mypy flake8
+  - pip install mypy flake8 pylint pytest==4.0.2
   - pip install -e .
 script:
-  - flake8 elbridge tests
-  - pytest
+  - flake8 elbridge tests setup.py # PEP8
+  - mypy elbridge # type-checking
+  - pytest # unit tests

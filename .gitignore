@@ -125,3 +125,5 @@ downloader/PA
 *.pkl
 *.so
 *.npz
+
+elbridge/cgraph/cgraph.cpp
