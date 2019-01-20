@@ -1,4 +1,4 @@
-""" Unit tests for the elbridge.Bitmap class. """
+""" Unit tests for elbridge.bitmap. """
 import os
 import pytest
 import numpy as np
@@ -185,6 +185,25 @@ def test_people_to_geo_relative(pa129):
     # *increase* from upper left to lower right--the population is packed in
     # more tightly in the upper left.
     assert right_geo_radius > left_geo_radius
+
+
+# center coordinates chosen randomly
+@pytest.mark.parametrize('center', [(0.056, 0.238), (0.739, 0.756),
+                                    (0.646, 0.628), (0.497, 0.520)])
+@pytest.mark.parametrize('pop', [10000, 31622, 100000, 316227])
+def test_people_to_geo_vs_true_local_pop(pa129, center, pop):
+    bitmap, _ = pa129
+    est_radius = bitmap.people_to_geo(*center, pop)
+    pop_at_radius = bitmap._true_local_pop(*center, est_radius)
+    # The population at the estimated radius and the true population should be
+    # within an order of magnitude of each other. This may sound like an
+    # overly broad bound, but bear in mind:
+    #  - We're estimating a radius. Assuming uniform density, a population
+    #    estimate that's off by 3x will have a radius that's off by ~1.73x,
+    #    which is acceptable for the purposes of our algorithm.
+    # - people_to_geo() is not designed for very large populations--it is not
+    #   expected to be accurate for a population of one million people.
+    assert abs(np.log10(pop / pop_at_radius)) < 1
 
 
 # center coordinates chosen randomly
