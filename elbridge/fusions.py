@@ -1,5 +1,5 @@
 """
-Methods for identifying VTDs that should always be allocated together.
+Functions for identifying VTDs that should always be allocated together.
 """
 import numpy as np  # type: ignore
 from typing import Dict
