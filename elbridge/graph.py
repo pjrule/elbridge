@@ -1,4 +1,5 @@
 """ Graph-related classes and functions for elbridge. """
+# pylint: disable=no-name-in-module
 from math import ceil
 from copy import deepcopy as dc
 from typing import List, Callable, Dict, Tuple
@@ -6,7 +7,7 @@ from collections import defaultdict
 from mypy_extensions import TypedDict
 from geopandas import GeoDataFrame  # type: ignore
 from libpysal.weights import Rook, Queen, W  # type: ignore
-from elbridge.cgraph import CGraph  # pylint: disable=no-name-in-module
+from elbridge.cgraph import CGraph  # type: ignore
 
 
 # typing for heterogenous dictionaries:

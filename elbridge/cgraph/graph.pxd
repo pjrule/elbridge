@@ -1,6 +1,6 @@
 # distutils: language=c++
 # http://docs.cython.org/en/latest/src/userguide/wrapping_CPlusPlus.html#add-public-attributes
-from libcpp cimport bool 
+from libcpp cimport bool
 from libcpp.vector cimport vector
 
 cdef extern from "graph.cpp":
