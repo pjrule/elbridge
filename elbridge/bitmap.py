@@ -7,8 +7,8 @@ from math import ceil
 from geopandas import GeoDataFrame  # type: ignore
 from shapely.geometry import Point, box  # type: ignore
 from shapely.topology import TopologicalError  # type: ignore
-from typing import Dict, Generator, Tuple, Any
-
+from typing import Dict, Generator, Tuple, Any, Optional
+from elbridge.common import bound
 
 class Bitmap:
     """
@@ -169,13 +169,13 @@ class Bitmap:
         # Find the bounds (in pixels) of the rectangle that inscribes
         # the circle
         x_abs, y_abs = self.abs_coords(x_rel, y_rel)
-        min_x = _bound(int((x_abs - self.min_x - r_abs) / self.density_width),
+        min_x = bound(int((x_abs - self.min_x - r_abs) / self.density_width),
                        0, self.density_cols - 1)
-        max_x = _bound(ceil((x_abs - self.min_x + r_abs) / self.density_width),
+        max_x = bound(ceil((x_abs - self.min_x + r_abs) / self.density_width),
                        0, self.density_cols - 1)
-        min_y = _bound(int((y_abs - self.min_y - r_abs) / self.density_height),
+        min_y = bound(int((y_abs - self.min_y - r_abs) / self.density_height),
                        0, self.density_rows - 1)
-        max_y = _bound(ceil((y_abs - self.min_y + r_abs) /
+        max_y = bound(ceil((y_abs - self.min_y + r_abs) /
                             self.density_height), 0, self.density_rows - 1)
 
         # Find the center and radius of the circle in pixels
@@ -198,7 +198,7 @@ class Bitmap:
         r = int((r_abs / density_dim))
 
         bounded = self.density_map[min_x:max_x+1, min_y:max_y+1]
-        mask, masked = _mask(min_x, max_x, min_y, max_y, c_x, c_y, r)
+        mask, masked = circle_mask(min_x, max_x, min_y, max_y, c_x, c_y, r)
 
         # If no pixels are masked, we approximate population based on
         # the center pixel
@@ -230,13 +230,27 @@ class Bitmap:
         to relative coordinates (proportional distances along the axes of the
         rectangular bounding box).
         :param x_abs: The absolute x-coordinate.
-        :param y_abs: The absolute y-coordiante.
+        :param y_abs: The absolute y-coordinate.
 
         Returns a 2-tuple with relative coordinates `(x_rel, y_rel)`.
         """
         x_rel = (x_abs - self.min_x) / (self.max_x - self.min_x)
         y_rel = (y_abs - self.min_y) / (self.max_y - self.min_y)
         return (x_rel, y_rel)
+
+    def vtd_at_point(self, x_abs: float, y_abs: float) -> Optional[int]:
+        """
+        Finds the index of the VTD at the given point (specified in absolute
+        coordinates). If a VTD does not exist at the given point, nothing is
+        returned.
+
+        :param x_abs: The absolute x-coordinate.
+        :param y_abs: The absolute y-coordinate.
+        """
+        p = Point((x_abs, y_abs))
+        for fid in list(self.rtree.intersection(p.bounds)):
+            if self.df.iloc[fid].geometry.contains(p):
+                return fid
 
     def reset(self):
         """ Resets the Bitmap object to its initial state. """
@@ -387,12 +401,12 @@ class Bitmap:
 
 
 @jit(nopython=True)
-def _mask(min_x: int, max_x: int, min_y: int, max_y: int,
-          c_x: int, c_y: int, r: int) -> np.ndarray:
+def circle_mask(min_x: int, max_x: int, min_y: int, max_y: int,
+         c_x: int, c_y: int, r: int) -> np.ndarray:
     """
     Generates a circle given a radius, a center, and a rectangular
-    bounding box.
-    Used by Bitmap.local_pop() to generate masks.
+    bounding box. Used by Bitmap.local_pop() to generate masks.
+
     :param min_x: The minimum x-value (in pixels) of the bounding box.
     :param max_x: The maximum x-value (in pixels) of the bounding box.
     :param min_y: The minimum y-value (in pixels) of the bounding box.
@@ -454,11 +468,3 @@ def _mask(min_x: int, max_x: int, min_y: int, max_y: int,
         masked = 0
 
     return mask, masked
-
-
-def _bound(val: int, min_val: int, max_val: int) -> int:
-    if val < min_val:
-        return min_val
-    elif val > max_val:
-        return max_val
-    return val

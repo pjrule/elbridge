@@ -5,7 +5,7 @@ import numpy as np
 import geopandas as gpd
 from math import pi
 from elbridge import Bitmap
-from elbridge.bitmap import _mask, _bound
+from elbridge.bitmap import circle_mask
 from shapely.geometry import box
 
 FIXTURES_DIR = os.path.join(os.path.dirname(__file__), 'fixtures')
@@ -171,6 +171,19 @@ def test_bitmap_squares_undersample(grid_2x2):
     assert bitmap_squares[0][2].area == 4
 
 
+def test_vtd_at_point_centroids(grid_2x2):
+    bitmap, _ = grid_2x2
+    for vtd_idx, centroid in enumerate(bitmap.centroids):
+       assert bitmap.vtd_at_point(*centroid) == vtd_idx
+
+
+def test_vtd_at_point_empty_corners(pa129):
+    bitmap, _ = pa129
+    corners = [(0, 0), (0, 1), (1, 0), (1, 1)]
+    for x, y in corners:
+        assert bitmap.vtd_at_point(x, y) == None
+
+
 def test_people_to_geo_relative(pa129):
     bitmap, _ = pa129
     left_geo_radius = bitmap.people_to_geo(0.33, 0.33, 10000)  # upper left
@@ -228,7 +241,7 @@ def test_true_local_pop(grid_2x2):
 
 @pytest.mark.parametrize('radius', [10, 20, 30])
 def test_mask(radius):
-    mask, n_masked = _mask(0, 60, 0, 60, 30, 30, radius)
+    mask, n_masked = circle_mask(0, 60, 0, 60, 30, 30, radius)
     # Verify that the center of the circle is masked
     assert mask[30][30] == 1
     # Verify that n_masked matches the number of masked pixels
@@ -239,13 +252,7 @@ def test_mask(radius):
 
 
 def test_mask_zero():
-    mask, n_masked = _mask(0, 60, 0, 60, 30, 30, 0)
+    mask, n_masked = circle_mask(0, 60, 0, 60, 30, 30, 0)
     assert mask[30][30] == 0
     assert mask[mask == 1].size == 0
     assert n_masked == 0
-
-
-def test_bound():
-    assert _bound(-1, 0, 5) == 0
-    assert _bound(2, 0, 5) == 2
-    assert _bound(6, 0, 5) == 5
