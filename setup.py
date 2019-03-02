@@ -6,7 +6,7 @@ import numpy
 
 # see https://dmtn-013.lsst.io/
 # see https://github.com/MDAnalysis/mdanalysis/pull/2150/files
-compile_args = ['-O3', '-std=c++11'] 
+compile_args = ['-O3', '-std=c++11']
 link_args = []
 if sys.platform == 'darwin':
     compile_args += ['-mmacosx-version-min=10.7', '-stdlib=libc++']
