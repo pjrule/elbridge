@@ -16,7 +16,7 @@ def fuse_islands(gdf: GeoDataFrame, adj: W) -> Dict[int, int]:
     :param adj: the VTDs' adjacency matrix.
     """
     closest = {}
-    if len(adj.islands) > 0:
+    if adj.islands:
         # Find distances between island centroids and all VTD centroids.
         distances = np.zeros((len(adj.islands), len(gdf)))
         centroids = [gdf.iloc[idx].geometry.centroid.coords[0]
@@ -33,7 +33,7 @@ def fuse_islands(gdf: GeoDataFrame, adj: W) -> Dict[int, int]:
             closest_idx = 0
             for vtd_idx, vtd_dist in enumerate(list(distances[island_idx])):
                 if (vtd_dist > 0 and vtd_dist < closest_dist and
-                   vtd_idx not in adj.islands):
+                        vtd_idx not in adj.islands):
                     closest_dist = vtd_dist
                     closest_idx = vtd_idx
             closest[island] = closest_idx

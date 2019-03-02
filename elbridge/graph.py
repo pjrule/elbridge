@@ -2,8 +2,8 @@
 # pylint: disable=no-name-in-module
 from math import ceil
 from copy import deepcopy as dc
-from typing import List, Callable, Dict, Tuple
 from collections import defaultdict
+from typing import List, Callable, Dict, Tuple, Set, DefaultDict, Optional
 from mypy_extensions import TypedDict
 from geopandas import GeoDataFrame  # type: ignore
 from libpysal.weights import Rook, Queen, W  # type: ignore
@@ -52,10 +52,7 @@ class Graph:
         self.pop_target = gdf[pop_col].sum() / n_districts
         self.pop_tolerance = pop_tolerance
         self.pops = gdf[pop_col].values
-        if fusions:
-            self.fusions = fusions
-        else:
-            self.fusions = []
+        self.fusion_graph = FusionGraph(gdf, self.adj, fusions or [])
 
         vtd_to_city, vtds_in_city = _vtd_indices(gdf, city_col)
         vtd_to_county, vtds_in_county = _vtd_indices(gdf, county_col)
@@ -78,19 +75,20 @@ class Graph:
     def update(self, vtds: List[int]) -> bool:
         """
         Attempts to assign a list of VTDs to the current congressional
-        district. If the VTDs _can_ be assigned, they are assigned and ``True``
-        is returned. If the VTDs cannot be assigned due to equal-population
-        constraints, ``False`` is returned. If the current congressional
-        district's population exceeds the minimum allowable population, a new
-        congressional district will be created in some cases.
+        district. If the VTDs _can_ be assigned after applying fusions, they
+        are assigned and ``True`` is returned. If the VTDs cannot be assigned
+        due to equal-population constraints, ``False`` is returned. If the
+        current congressional district's population exceeds the minimum
+        allowable population, a new congressional district will be created in
+        some cases.
 
         :param vtds: A list of VTD indices (an index of n corresponds to the
         nth row in the Graph's GeoDataFrame) to allocate.
         """
+        vtds = self.fusion_graph.fuse(vtds)  # apply fusions first
         if not self.graph.contiguous(vtds):
             return False  # bail early if the allocation isn't contiguous
 
-        # TODO: fusions (whoops, forgot!!)
         pop = sum(self.pops[idx] for idx in vtds)
         allocated = self.dist_state['pop']
         min_pop = self.dist_state['min_pop']
@@ -430,6 +428,58 @@ def _vtd_indices(gdf: GeoDataFrame, div_col: str) \
         vtd_to_div[vtd_idx] = vtd[div_col]
         vtds_in_div[vtd[div_col]].append(vtd_idx)
     return vtd_to_div, vtds_in_div
+
+
+class FusionGraph:
+    def __init__(self, gdf: GeoDataFrame, adj: W, fusions: List[Callable]):
+        """
+        Builds a fusion graph of VTD indices from a GeoDataFrame and a list
+        of fusions.
+
+        :param gdf: The GeoDataFrame of VTDs to generate the graph from.
+        :param adj: An adjacency matrix generated from the GeoDataFrame.
+        :param fusions: The list  of fusions.
+        """
+        self.graph: DefaultDict[int, Set[int]] = defaultdict(set)
+        for fusion in fusions:
+            fused = fusion(gdf, adj)
+            for f1, f2 in fused.items():
+                self.graph[f1].add(f2)
+                self.graph[f2].add(f1)
+
+    def fuse(self, vtds: List[int]) -> List[int]:
+        """
+        Given a list of VTD indices, returns a list of VTD indices
+        with fusions applied. It is guaranteed that ``len(fused)`` ≥
+        ``len(vtds)``.
+
+        :param vtds: The list of VTD indices to apply fusions to.
+        """
+        fused: Set[int] = set([])
+        for vtd in vtds:
+            fused.add(vtd)
+            if self.graph[vtd]:
+                fused = fused.union(self._get_children(vtd))
+        return list(fused)
+
+    def _get_children(self, vtd_idx: int,
+                      discovered: Optional[Set[int]] = None) -> Set[int]:
+        """
+        Recursively generates the set of VTDs that a VTD is fused with
+        given that VTD's index.
+
+        :param vtd_idx: The VTD's index.
+        :param discovered: The set of children already disovered (used
+            internally).
+        """
+        children: Set[int] = set([])
+        if discovered:
+            children = discovered
+        for child in self.graph[vtd_idx]:
+            if child not in children:
+                children.add(child)
+                children = children.union(self._get_children(child, children))
+        return children
 
 
 class ResetError(Exception):
