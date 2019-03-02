@@ -14,7 +14,7 @@ if sys.platform == 'darwin':
 
 cgraph_root = os.path.join('elbridge', 'cgraph')
 
-graph_module = Extension('elbridge.cgraph',
+cgraph_module = Extension('elbridge.cgraph',
                           sources=[os.path.join(cgraph_root, 'cgraph.pyx')],
                           extra_compile_args=compile_args,
                           extra_link_args=link_args,
