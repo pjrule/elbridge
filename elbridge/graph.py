@@ -3,9 +3,21 @@ from math import ceil
 from copy import deepcopy as dc
 from typing import List, Callable, Dict, Tuple
 from collections import defaultdict
-from geopandas import GeoDataFrame
-from libpysal.weights import Rook, Queen, W
+from mypy_extensions import TypedDict
+from geopandas import GeoDataFrame  # type: ignore
+from libpysal.weights import Rook, Queen, W  # type: ignore
 from elbridge.cgraph import CGraph  # pylint: disable=no-name-in-module
+
+
+# typing for heterogenous dictionaries:
+# https://mypy.readthedocs.io/en/latest/more_types.html#typeddict
+Indices = TypedDict('Indices', {
+    'vtd_to_city': Dict[int, str],
+    'vtds_in_city': Dict[str, List[int]],
+    'vtd_to_county': Dict[int, str],
+    'vtds_in_county': Dict[str, List[int]],
+    'vtd_pop': Dict[int, int]
+})  # pylint:disable=invalid-name
 
 
 class Graph:
@@ -47,13 +59,14 @@ class Graph:
         vtd_to_city, vtds_in_city = _vtd_indices(gdf, city_col)
         vtd_to_county, vtds_in_county = _vtd_indices(gdf, county_col)
         vtd_pop = {idx: row[pop_col] for idx, row in gdf.iterrows()}
+
         self.indices = {
             'vtd_to_city': vtd_to_city,
             'vtds_in_city': vtds_in_city,
             'vtd_to_county': vtd_to_county,
             'vtds_in_county': vtds_in_county,
             'vtd_pop': vtd_pop
-        }
+        }  # type: Indices
 
         self._build_graph()
 

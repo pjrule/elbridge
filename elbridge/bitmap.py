@@ -248,10 +248,11 @@ class Bitmap:
         :param x_abs: The absolute x-coordinate.
         :param y_abs: The absolute y-coordinate.
         """
-        p = Point((x_abs, y_abs))
-        for fid in list(self.rtree.intersection(p.bounds)):
-            if self.df.iloc[fid].geometry.contains(p):
+        point = Point((x_abs, y_abs))
+        for fid in list(self.rtree.intersection(point.bounds)):
+            if self.df.iloc[fid].geometry.contains(point):
                 return fid
+        return None
 
     def reset(self):
         """ Resets the Bitmap object to its initial state. """
