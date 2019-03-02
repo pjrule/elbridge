@@ -231,10 +231,10 @@ class Graph:
         .. _Wesberry v. Sanders (1964): https://www.oyez.org/cases/1963/22
         .. _Reynolds v. Sims (1964): https://www.oyez.org/cases/1963/23
         .. _Pennsylvania's 2018 congressional district plan:
-        https://ballotpedia.org/Redistricting_in_Pennsylvania#Demographics
+            https://ballotpedia.org/Redistricting_in_Pennsylvania#Demographics
         .. _a tolerance of 1% by default: https://github.com/mggg/GerryChain/
-        blob/52a606c88f1c2648d1247c658b1992783ec79de7/gerrychain/constraints/
-        validity.py#L75
+            blob/52a606c88f1c2648d1247c658b1992783ec79de7/gerrychain/
+            constraints/validity.py#L75
         """
         lower_tol = self.pop_target * (1 - self.pop_tolerance)
         upper_tol = self.pop_target * (1 + self.pop_tolerance)

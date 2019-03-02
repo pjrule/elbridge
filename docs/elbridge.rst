@@ -12,6 +12,14 @@ elbridge.bitmap module
     :undoc-members:
     :show-inheritance:
 
+elbridge.common module
+----------------------
+
+.. automodule:: elbridge.common
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 elbridge.errors module
 ----------------------
 
@@ -28,43 +36,12 @@ elbridge.fusions module
     :undoc-members:
     :show-inheritance:
 
-elbridge.gerrychain module
---------------------------
-
-.. automodule:: elbridge.gerrychain
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
 elbridge.graph module
 ---------------------
 
 .. automodule:: elbridge.graph
     :members:
-    :undoc-members:
-    :show-inheritance:
-
-elbridge.map module
--------------------
-
-.. automodule:: elbridge.map
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-elbridge.plan module
---------------------
-
-.. automodule:: elbridge.plan
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-elbridge.states module
-----------------------
-
-.. automodule:: elbridge.states
-    :members:
+    :private-members:
     :undoc-members:
     :show-inheritance:
 
