@@ -1,17 +1,30 @@
-from distutils.core import setup
+import setuptools
+from distutils.core import setup, Extension
 from Cython.Build import cythonize
-import platform
 import os
+import sys
+import numpy
 
-os.environ['CFLAGS'] = '-O3 -std=c++11'
-if platform.system() == 'Darwin':
-    # It may be necessary to specify the use of libc++
-    # when building with clang on macOS.
-    # see https://stackoverflow.com/a/40031250
-    #     https://stackoverflow.com/a/50407611
-    os.environ['CFLAGS'] += ' -stdlib=libc++'
+compile_args = ['-g', '-O3', '-std=c++11', '-stdlib=libc++']
+link_args = []
+if sys.platform == 'darwin':
+    compile_args.append('-mmacosx-version-min=10.7')
+    link_args.append('-stdlib=libc++')
+    link_args.append('-std=c++11')
+cgraph_root = os.path.join('elbridge', 'cgraph')
+
+# see https://dmtn-013.lsst.io/
+# see https://github.com/MDAnalysis/mdanalysis/pull/2150/files
+cgraph_module = Extension('elbridge.cgraph',
+                          sources=[os.path.join(cgraph_root, 'cgraph.pyx')],
+                          extra_compile_args=compile_args,
+                          extra_link_args=link_args,
+                          # https://stackoverflow.com/a/14657667
+                          include_dirs=[numpy.get_include()],
+                          language='c++')
+
 setup(
     name='elbridge',
-    ext_modules=cythonize(os.path.join('elbridge', 'cgraph', 'cgraph.pyx')),
+    ext_modules=cythonize(cgraph_module),
     packages=['elbridge']
 )
