@@ -35,9 +35,7 @@ namespace graph {
             std::vector<int>  border_vtds(std::vector<int> unallocated);
             std::vector<int>  unallocated_on_border(int district);
             void              allocate(std::vector<int> unallocated, bool next);
-            void              reset_district();
-            void              print_neighbors(int id);
-            void              print_curr_district(); 
+            void              reset(int max_district);
     };   
 }
 

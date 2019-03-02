@@ -98,7 +98,7 @@ namespace graph {
 
     std::vector<int> Graph::border_vtds(std::vector<int> unallocated){
         /* 
-         * Given an array of IDs of unallocated VTDs, determine which of the TDs are on the border
+         * Given an array of IDs of unallocated VTDs, determine which of the VTDs are on the border
          * of the allocation. A VTD is said to be on the border of an allocation if, after the
          * allocation, it will have at least one unallocated neighbor.
          */
@@ -238,6 +238,7 @@ namespace graph {
             ws_visited++;
         }
 
+
         // whitespace not divided--no VTDs surrounded
         if(ws_visited == ws_left - unallocated.size()){
             return std::vector<int>(0);
@@ -284,22 +285,23 @@ namespace graph {
         ws_left -= unallocated.size();
     }
 
-    void Graph::reset_district(){
-        /* Return all VTDs in the current district to an unallocated state. */
+    void Graph::reset(int max_district){
+        /* Return all VTDs in a district greater than `max_district`
+         * to an unallocated state. */
         for(int idx = 0; idx < vtds.size(); idx++){
-            if(vtds.at(idx).get_district() == curr_district){
+            if(vtds.at(idx).get_district() > max_district){
                 vtds.at(idx).set_district(NO_DISTRICT);
                 ws_left++;
             }   
         }
-        curr_vtds.clear();
+        if(max_district < curr_district){
+            curr_vtds.clear();
+            curr_district = max_district;
+        }
     }
 
     void Graph::next_district(){
         curr_district++;
-        std::vector<int> _prev;
-        _prev = curr_vtds;
         curr_vtds.clear();
-        prev_vtds = _prev;
     }
 }
