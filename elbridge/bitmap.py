@@ -10,6 +10,7 @@ from shapely.topology import TopologicalError  # type: ignore
 from typing import Dict, Generator, Tuple, Any, Optional
 from elbridge.common import bound
 
+
 class Bitmap:
     """
     For a given districting plan, Elbridge maintains two bitmap images:
@@ -170,13 +171,13 @@ class Bitmap:
         # the circle
         x_abs, y_abs = self.abs_coords(x_rel, y_rel)
         min_x = bound(int((x_abs - self.min_x - r_abs) / self.density_width),
-                       0, self.density_cols - 1)
+                      0, self.density_cols - 1)
         max_x = bound(ceil((x_abs - self.min_x + r_abs) / self.density_width),
-                       0, self.density_cols - 1)
+                      0, self.density_cols - 1)
         min_y = bound(int((y_abs - self.min_y - r_abs) / self.density_height),
-                       0, self.density_rows - 1)
+                      0, self.density_rows - 1)
         max_y = bound(ceil((y_abs - self.min_y + r_abs) /
-                            self.density_height), 0, self.density_rows - 1)
+                           self.density_height), 0, self.density_rows - 1)
 
         # Find the center and radius of the circle in pixels
         # TODO: Consider re-evaluating these calculations for special cases.
@@ -402,7 +403,7 @@ class Bitmap:
 
 @jit(nopython=True)
 def circle_mask(min_x: int, max_x: int, min_y: int, max_y: int,
-         c_x: int, c_y: int, r: int) -> np.ndarray:
+                c_x: int, c_y: int, r: int) -> np.ndarray:
     """
     Generates a circle given a radius, a center, and a rectangular
     bounding box. Used by Bitmap.local_pop() to generate masks.

@@ -174,14 +174,14 @@ def test_bitmap_squares_undersample(grid_2x2):
 def test_vtd_at_point_centroids(grid_2x2):
     bitmap, _ = grid_2x2
     for vtd_idx, centroid in enumerate(bitmap.centroids):
-       assert bitmap.vtd_at_point(*centroid) == vtd_idx
+        assert bitmap.vtd_at_point(*centroid) == vtd_idx
 
 
 def test_vtd_at_point_empty_corners(pa129):
     bitmap, _ = pa129
     corners = [(0, 0), (0, 1), (1, 0), (1, 1)]
     for x, y in corners:
-        assert bitmap.vtd_at_point(x, y) == None
+        assert bitmap.vtd_at_point(x, y) is None
 
 
 def test_people_to_geo_relative(pa129):
