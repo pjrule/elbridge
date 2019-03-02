@@ -3,22 +3,19 @@ import pytest
 import geopandas as gpd
 from copy import deepcopy as dc
 from shapely.geometry import box
-from elbridge.graph import Graph, ResetError, ContiguityError, \
+from elbridge.graph import Graph, FusionGraph, ResetError, ContiguityError, \
                            remove_city, _adj_matrix, _vtd_indices
 from elbridge.cgraph import CGraph
 
 
 @pytest.fixture(scope='module')
-def grid_8x8():
+def grid_gdf():
     """
-    Basic ``elbridge.Graph`` grid fixture:
+    Returns a GeoDataFrame to build a Basic ``elbridge.Graph`` grid fixture:
         * 64 VTDs of equal population
         * 8 cities (one per row)
         * 4 counties (one every two rows)
-        * n_districts: 2
-        * Tolerance of 6.25% (districts are 32 VTDs +/- 2 VTDs)
-        * No fusions
-    """
+   """
     pop = [1] * 64  # uniform population density
     polys = []
     cities = []
@@ -28,24 +25,61 @@ def grid_8x8():
             polys.append(box(col, row, col + 1, row + 1))
             cities.append('city{}'.format(row))
             counties.append('county{}'.format(row // 2))
-    gdf = gpd.GeoDataFrame({'pop': pop, 'city': cities,
-                            'county': counties, 'geometry': polys})
-    return Graph(gdf=gdf, n_districts=2, contiguity='rook', pop_col='pop',
+    return gpd.GeoDataFrame({'pop': pop, 'city': cities,
+                             'county': counties, 'geometry': polys})
+
+
+@pytest.fixture
+def grid_8x8(grid_gdf):
+    """
+    Builds an ``elbridge.Graph`` grid fixture from ``grid_gdf``:
+        * n_districts: 2
+        * Tolerance of 6.25% (districts are 32 VTDs +/- 2 VTDs)
+        * No fusions
+    """
+    return Graph(gdf=grid_gdf, n_districts=2, contiguity='rook', pop_col='pop',
                  city_col='city', county_col='county', pop_tolerance=2/32)
 
 
 @pytest.fixture
-def grid_8x8_allocated(grid_8x8):
-    """ Returns a copy of the 8x8 grid fixture with one half allocated. """
-    grid = dc(grid_8x8)
-    grid.update(list(range(32)))
-    return grid
+def grid_8x8_one_fusion(grid_gdf):
+    """
+    Builds an ``elbridge.Graph`` grid fixture from ``grid_gdf``:
+        * n_districts: 2
+        * Tolerance of 6.25% (districts are 32 VTDs +/- 2 VTDs)
+        * One fusion (forces VTD 0 and VTD 1 to be allocated together)
+    """
+    return Graph(gdf=grid_gdf, n_districts=2, contiguity='rook', pop_col='pop',
+                 city_col='city', county_col='county', pop_tolerance=2/32,
+                 fusions=[lambda gdf, adj: {0: 1}]), [0, 1]
 
 
 @pytest.fixture
-def grid_8x8_fresh(grid_8x8):
-    """ Returns a copy of the 8x8 grid fixture for mutation. """
-    return dc(grid_8x8)
+def grid_8x8_two_fusions(grid_gdf):
+    """
+    Builds an ``elbridge.Graph`` grid fixture from ``grid_gdf``:
+        * n_districts: 2
+        * Tolerance of 6.25% (districts are 32 VTDs +/- 2 VTDs)
+        * Two fusions (force VTDs 0, 1, and 2 to be allocated together)
+    """
+    def f1_0(gdf, adj):
+        """ VTD 1 and VTD 0 must be allocated together. """
+        return {1: 0}
+
+    def f1_2(gdf, adj):
+        """ VTD 1 and VTD 2 must be allocated together. """
+        return {1: 2}
+
+    return Graph(gdf=grid_gdf, n_districts=2, contiguity='rook', pop_col='pop',
+                 city_col='city', county_col='county', pop_tolerance=2/32,
+                 fusions=[f1_0, f1_2]), [0, 1, 2]
+
+
+@pytest.fixture
+def grid_8x8_allocated(grid_8x8):
+    """ Returns the 8x8 grid fixture with one half allocated. """
+    grid_8x8.update(list(range(32)))
+    return grid_8x8
 
 
 def test_build_graph(grid_8x8_allocated):
@@ -127,12 +161,12 @@ def test_update_non_contiguous(grid_8x8_allocated):
     assert not grid_8x8_allocated.update([41, 42])
 
 
-def test_update_valid(grid_8x8_fresh):
-    assert grid_8x8_fresh.update([0, 1, 2, 3])
+def test_update_valid(grid_8x8):
+    assert grid_8x8.update([0, 1, 2, 3])
 
 
-def test_update_max_pop_exceeded(grid_8x8_fresh):
-    assert not grid_8x8_fresh.update(list(range(35)))  # max: 34 VTDs
+def test_update_max_pop_exceeded(grid_8x8):
+    assert not grid_8x8.update(list(range(35)))  # max: 34 VTDs
 
 
 def test_update_last_district(grid_8x8_allocated):
@@ -140,17 +174,32 @@ def test_update_last_district(grid_8x8_allocated):
     assert grid_8x8_allocated.done
 
 
-def test_update_enclosed_valid(grid_8x8_fresh):
-    # make a fresh copy of the grid (avoid mutating fixture)
+def test_update_enclosed_valid(grid_8x8):
     #  0  *  *  *  4  *  *  *
     #  8  *  *  * 12  *  *  *
     # 16 17 18 19 20  *  *  *
-    assert grid_8x8_fresh.update([0, 4, 8, 12, 16, 17, 18, 19, 20])
+    assert grid_8x8.update([0, 4, 8, 12, 16, 17, 18, 19, 20])
 
 
-def test_update_enclosed_too_big(grid_8x8_fresh):
-    assert grid_8x8_fresh.update(list(range(16)))
-    assert not grid_8x8_fresh.update(list(range(32, 40)))
+def test_update_enclosed_too_big(grid_8x8):
+    assert grid_8x8.update(list(range(16)))
+    assert not grid_8x8.update(list(range(32, 40)))
+
+
+@pytest.mark.parametrize('fused', ['grid_8x8_one_fusion',
+                                   'grid_8x8_two_fusions'])
+def test_update_with_fusion(fused, request):
+    # We verify that the same allocation occurs for all VTDs in the
+    # list of fused VTDs. For instance, if VTD 0 and VTD 1 are always
+    # allocated together, then grid.update([0]) should have the same
+    # result as grid.update([1]).
+    # getting fixture values: https://stackoverflow.com/a/46420704
+    orig_grid, fused_vtds = request.getfixturevalue(fused)
+    for vtd in fused_vtds:
+        # make a fresh copy of the grid to avoid state issues
+        grid = dc(orig_grid)
+        grid.update([vtd])
+        assert grid.current_vtds == fused_vtds
 
 
 def test_to_dict(grid_8x8, monkeypatch):
@@ -277,6 +326,36 @@ def test_graph_as_str_done(grid_8x8, monkeypatch):
     monkeypatch.setattr(grid_8x8, 'state', {'done': True})
     assert str(grid_8x8) == ('A graph of 64 voting districts (nodes) '
                              'partitioned into 2 congressional districts')
+
+
+def test_fusiongraph_with_one_fusion():
+    # This test verifies that FusionGraph.fuse() returns a proper list based on
+    # its fusion graph in the one-fusion case. Higher-level functionality
+    # (initialization of the fusion graph, application of fusions to
+    # allocations) is tested in test_update_with_fusion().
+    def fusion(gdf, adj):
+        return {0: 1, 2: 3}
+
+    f = FusionGraph(None, None, [fusion])
+    combinations = [[0, 2], [0, 3], [1, 2], [1, 3]]
+    for combo in combinations:
+        assert f.fuse(combo) == list(range(4))
+
+
+def test_fusiongraph_with_two_fusions():
+    # This test verifies that FusionGraph.fuse() returns a proper list based on
+    # its fusion graph in the case of multiple fusions. Higher-level
+    # functionality (initialization of the fusion graph, application of
+    # fusions to allocations) is tested in test_update_with_fusion().
+    def f1(gdf, adj):
+        return {1: 0}
+
+    def f2(gdf, adj):
+        return {1: 2}
+
+    f = FusionGraph(None, None, [f1, f2])
+    for vtd in range(3):
+        assert f.fuse([vtd]) == list(range(3))
 
 
 def test_remove_city(grid_8x8):
