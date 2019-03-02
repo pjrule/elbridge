@@ -1,20 +1,20 @@
-from distutils.core import setup, Extension
-from Cython.Build import cythonize
 import os
 import sys
+from distutils.core import setup, Extension
+from Cython.Build import cythonize
 import numpy
-
-compile_args = ['-g', '-O3', '-std=c++11', '-stdlib=libc++']
-link_args = []
-if sys.platform == 'darwin':
-    compile_args.append('-mmacosx-version-min=10.7')
-    link_args.append('-stdlib=libc++')
-    link_args.append('-std=c++11')
-cgraph_root = os.path.join('elbridge', 'cgraph')
 
 # see https://dmtn-013.lsst.io/
 # see https://github.com/MDAnalysis/mdanalysis/pull/2150/files
-cgraph_module = Extension('elbridge.cgraph',
+compile_args = ['-O3', '-std=c++11'] 
+link_args = []
+if sys.platform == 'darwin':
+    compile_args += ['-mmacosx-version-min=10.7', '-stdlib=libc++']
+    link_args += ['-stdlib=libc++', '-std=c++11']
+
+cgraph_root = os.path.join('elbridge', 'cgraph')
+
+graph_module = Extension('elbridge.cgraph',
                           sources=[os.path.join(cgraph_root, 'cgraph.pyx')],
                           extra_compile_args=compile_args,
                           extra_link_args=link_args,
