@@ -90,7 +90,7 @@ class Bitmap:
         # Create an empty canvas for the low-resolution district plan rendering
         self.frame = np.zeros((rows, cols))
 
-    def update_districts(self, vtds: Dict[int, int]) -> np.ndarray:
+    def update(self, vtds: Dict[int, int]) -> np.ndarray:
         """
         Updates the districting plan bitmap given a dictionary mapping
         incrementally allocated VTD indices to congressional districts.
@@ -239,15 +239,16 @@ class Bitmap:
         y_rel = (y_abs - self.min_y) / (self.max_y - self.min_y)
         return (x_rel, y_rel)
 
-    def vtd_at_point(self, x_abs: float, y_abs: float) -> Optional[int]:
+    def vtd_at_point(self, x_rel: float, y_rel: float) -> Optional[int]:
         """
-        Finds the index of the VTD at the given point (specified in absolute
+        Finds the index of the VTD at the given point (specified in relative
         coordinates). If a VTD does not exist at the given point, nothing is
         returned.
 
-        :param x_abs: The absolute x-coordinate.
-        :param y_abs: The absolute y-coordinate.
+        :param x_rel: The relative x-coordinate.
+        :param y_rel: The relative y-coordinate.
         """
+        x_abs, y_abs = self.abs_coords(x_rel, y_rel)
         point = Point((x_abs, y_abs))
         for fid in list(self.rtree.intersection(point.bounds)):
             if self.df.iloc[fid].geometry.contains(point):

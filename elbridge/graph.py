@@ -72,7 +72,7 @@ class Graph:
         self.state = dc(self.states[0])
         self.dist_state = self._next_dist_state()
 
-    def update(self, vtds: List[int]) -> bool:
+    def update(self, vtds: List[int]) -> Dict[int, int]:
         """
         Attempts to assign a list of VTDs to the current congressional
         district. If the VTDs _can_ be assigned after applying fusions, they
@@ -84,16 +84,25 @@ class Graph:
 
         :param vtds: A list of VTD indices (an index of n corresponds to the
         nth row in the Graph's GeoDataFrame) to allocate.
+
+        Returns a dictionary mapping newly allocated VTDs (if any) to their
+        congressional district. (This format is intended for consumption by
+        :class:`~elbridge.bitmap.Bitmap`).
         """
+        print('[graph.py] update vtds:', vtds)
         vtds = self.fusion_graph.fuse(vtds)  # apply fusions first
+        print('fused:', vtds)
         if not self.graph.contiguous(vtds):
-            return False  # bail early if the allocation isn't contiguous
+            print('not contiguous')
+            return {}  # bail early if the allocation isn't contiguous
 
         pop = sum(self.pops[idx] for idx in vtds)
         allocated = self.dist_state['pop']
         min_pop = self.dist_state['min_pop']
         max_pop = self.dist_state['max_pop']
         if allocated + pop >= min_pop:  # Close to the population bounds
+            print('close to pop bounds')
+            print('proposed pop:', allocated + pop)
             # Case 1: the current district's population is greater than its
             # minimum population, and allocating ``vtds`` to the district
             # will push its population beyond its maximum population.
@@ -117,7 +126,7 @@ class Graph:
                     self.state['vtd_by_district'][self.n_districts] = last_vtds
                     self.state['vtd_by_district'][0] = []
                     self.state['done'] = True
-                    return True
+                    return {vtd: self.n_districts for vtd in last_vtds}
                 else:
                     debt_delta = self.pop_target - self.dist_state['pop']
                     self.state['debt'] += debt_delta
@@ -131,12 +140,13 @@ class Graph:
             # is too big to fit within the maximum acceptable population.
             # Thus, we reject the update.
             elif allocated + pop > max_pop:
-                return False
+                return {}
 
         # To avoid unallocated, inaccessible holes of whitespace within
         # allocations, we check for enclosed whitespace. If it exists, we
         # add it to the allocation and recursively call update().
         enclosed_vtds = self.graph.validate(vtds)
+        print('enclosed vtds:', enclosed_vtds)
         if enclosed_vtds:
             return self.update(vtds + enclosed_vtds)
 
@@ -151,7 +161,7 @@ class Graph:
         self.graph.allocate(vtds, self.dist_state['pop'] == 0)
         self.state['vtd_by_district'][self.state['district']] += vtds
         self.dist_state['pop'] += pop
-        return True
+        return {vtd: self.state['district'] for vtd in vtds}
 
     def _build_graph(self):
         """ Constructs a CGraph object from the adjacency natrix. """
@@ -161,8 +171,7 @@ class Graph:
 
     def _init_state(self) -> Dict:
         """ Constructs the initial state dictionary of the graph. """
-        all_vtds = list(self.df.index)
-        vtd_by_district = [all_vtds] + ([[]] * self.n_districts)
+        vtd_by_district = [self.all_vtds] + ([[]] * self.n_districts)
         return {
             'done': False,
             'pop_debt': 0,
@@ -308,6 +317,7 @@ class Graph:
 
         :param vtds: The indices of the VTDs defining the border.
         """
+        print("[graph.py] calling border_vtds...")
         return self.graph.border_vtds(vtds)
 
     def contiguous(self, vtds: List[int]) -> bool:
@@ -345,11 +355,38 @@ class Graph:
         return self.state['district']
 
     @property
+    def current_district_pop(self) -> int:
+        """ Returns the population of the current congressional district. """
+        return self.dist_state['pop']
+
+    @property
     def current_vtds(self) -> List[int]:
         """
         Returns the indices of all VTDs allocated to the current district.
         """
         return dc(self.state['vtd_by_district'][self.state['district']])
+
+    @property
+    def all_vtds(self) -> List[int]:
+        """
+        Returns the indices of all VTDs in the graph.
+        """
+        return list(self.df.index)
+
+    @property
+    def vtds_left(self) -> List[int]:
+        """
+        Returns the indices of all unallocated VTDs in the graph.
+        """
+        return dc(self.state['vtd_by_district'][0])
+
+    @property
+    def current_district_pop_bounds(self) -> Tuple[int, int]:
+        """
+        Returns the minimum and maximum population of the current
+        district when fully allocated.
+        """
+        return self.dist_state['min_pop'], self.dist_state['max_pop']
 
     @property
     def min_pop_left(self) -> int:
@@ -367,7 +404,7 @@ class Graph:
         """
         return self.dist_state['max_pop'] - self.dist_state['pop']
 
-    def __str__(self) -> str:
+    def __repr__(self) -> str:
         """ Returns a summary of the graph's node count and partitioning. """
         n_vtd = len(self.df)
         if self.state['done']:
