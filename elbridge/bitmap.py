@@ -20,10 +20,13 @@ class Bitmap:
     these bitmaps; it also contains methods for computing geographical radii
     from radii specified in terms of population.
     """
-
-    def __init__(self, gdf: GeoDataFrame, pop_col: str,
-                 density_resolution: int, district_resolution: int,
-                 bisect_rel_xtol: float = 0.01, bisect_rtol: float = 0.00001,
+    def __init__(self,
+                 gdf: GeoDataFrame,
+                 pop_col: str,
+                 density_resolution: int,
+                 district_resolution: int,
+                 bisect_rel_xtol: float = 0.01,
+                 bisect_rtol: float = 0.00001,
                  bisect_max_iter: int = 80):
         """
         :param gdf: The state's GeoDataFrame (with each VTD as a row).
@@ -133,8 +136,8 @@ class Bitmap:
         for _ in range(self.bisect_max_iter):
             c = (a + b) / 2
             f_c = self.local_pop(x_rel, y_rel, c) - r_P
-            if (abs(f_c) <= self.bisect_rel_xtol * r_P or
-                    b - a <= self.bisect_rtol):
+            if (abs(f_c) <= self.bisect_rel_xtol * r_P
+                    or b - a <= self.bisect_rtol):
                 return c
             if f_a * f_c > 0:
                 a = c
@@ -176,8 +179,8 @@ class Bitmap:
                       0, self.density_cols - 1)
         min_y = bound(int((y_abs - self.min_y - r_abs) / self.density_height),
                       0, self.density_rows - 1)
-        max_y = bound(ceil((y_abs - self.min_y + r_abs) /
-                           self.density_height), 0, self.density_rows - 1)
+        max_y = bound(ceil((y_abs - self.min_y + r_abs) / self.density_height),
+                      0, self.density_rows - 1)
 
         # Find the center and radius of the circle in pixels
         # TODO: Consider re-evaluating these calculations for special cases.
@@ -198,17 +201,17 @@ class Bitmap:
         density_dim = (self.density_width + self.density_height) / 2
         r = int((r_abs / density_dim))
 
-        bounded = self.density_map[min_x:max_x+1, min_y:max_y+1]
+        bounded = self.density_map[min_x:max_x + 1, min_y:max_y + 1]
         mask, masked = circle_mask(min_x, max_x, min_y, max_y, c_x, c_y, r)
 
         # If no pixels are masked, we approximate population based on
         # the center pixel
         if masked == 0:
-            est_pop = self.density_map[c_x, c_y] * 4 * (r_abs ** 2)
+            est_pop = self.density_map[c_x, c_y] * 4 * (r_abs**2)
         # Otherwise, we approximate population based on the mean density
         # of the mask.
         else:
-            est_pop = np.sum(mask * bounded) / masked * 4 * (r_abs ** 2)
+            est_pop = np.sum(mask * bounded) / masked * 4 * (r_abs**2)
         return min(est_pop, self.state_pop)
 
     def abs_coords(self, x_rel: float, y_rel: float) -> Tuple[float, float]:
@@ -404,8 +407,8 @@ class Bitmap:
 
 
 @jit(nopython=True)
-def circle_mask(min_x: int, max_x: int, min_y: int, max_y: int,
-                c_x: int, c_y: int, r: int) -> np.ndarray:
+def circle_mask(min_x: int, max_x: int, min_y: int, max_y: int, c_x: int,
+                c_y: int, r: int) -> np.ndarray:
     """
     Generates a circle given a radius, a center, and a rectangular
     bounding box. Used by Bitmap.local_pop() to generate masks.
@@ -438,13 +441,13 @@ def circle_mask(min_x: int, max_x: int, min_y: int, max_y: int,
                 (max(c_x - x - min_x, 0), max(c_y - y - min_y, 0)),
                 (max(c_x - x - min_x, 0), min(c_y + y - min_y, mask_y_max)),
                 (min(c_x + x - min_x, mask_x_max), max(c_y - y - min_y, 0)),
-                (min(c_x + x - min_x, mask_x_max),
-                    min(c_y + y - min_y, mask_y_max)),
+                (min(c_x + x - min_x,
+                     mask_x_max), min(c_y + y - min_y, mask_y_max)),
                 (max(c_x - y - min_x, 0), max(c_y - x - min_y, 0)),
                 (max(c_x - y - min_x, 0), min(c_y + x - min_y, mask_y_max)),
                 (min(c_x + y - min_x, mask_x_max), max(c_y - x - min_y, 0)),
-                (min(c_x + y - min_x, mask_x_max),
-                    min(c_y + x - min_y, mask_y_max))
+                (min(c_x + y - min_x,
+                     mask_x_max), min(c_y + x - min_y, mask_y_max))
             ]
             for pix in to_mask:
                 mask[pix] = 1
@@ -463,7 +466,7 @@ def circle_mask(min_x: int, max_x: int, min_y: int, max_y: int,
         for x in range(mask.shape[0]):
             ones = np.where(mask[x] == 1)[0]
             if len(ones) > 1:
-                mask[x][ones[0]:ones[-1]+1] = 1
+                mask[x][ones[0]:ones[-1] + 1] = 1
                 masked += ones[-1] - ones[0] + 1
     else:
         # For the purposes of local_pop(), we don't create a mask for circles

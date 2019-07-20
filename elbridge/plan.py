@@ -5,6 +5,7 @@ from elbridge.bitmap import Bitmap
 from elbridge.graph import Graph
 from elbridge.fusions import fuse_islands, fuse_enclosed
 
+
 def random_init() -> Tuple[float, float]:
     """
     Returns uniformly sampled random relative coordinates
@@ -69,10 +70,10 @@ class Plan:
         if proj:
             gdf = gdf.to_crs({'init': proj})
 
-        self.bitmap = Bitmap(gdf, pop_col,
-                             density_resolution, district_resolution)
+        self.bitmap = Bitmap(gdf, pop_col, density_resolution,
+                             district_resolution)
         self.graph = Graph(gdf, n_districts, contiguity, pop_col, city_col,
-                           county_col,  pop_tolerance, fusions)
+                           county_col, pop_tolerance, fusions)
         self.init_func = init
         self._init_geo()
 
@@ -124,12 +125,9 @@ class Plan:
                 ' x={:.5f}, y={:.5f})').format(
                     len(self.graph.all_vtds),
                     len(self.graph.all_vtds) - len(self.graph.vtds_left),
-                    self.graph.n_districts,
-                    self.graph.current_district,
+                    self.graph.n_districts, self.graph.current_district,
                     self.graph.current_district_pop,
-                    self.graph.current_district_pop_bounds,
-                    self.x,
-                    self.y)
+                    self.graph.current_district_pop_bounds, self.x, self.y)
 
     @property
     def frame(self):

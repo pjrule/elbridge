@@ -9,16 +9,16 @@ from geopandas import GeoDataFrame  # type: ignore
 from libpysal.weights import Rook, Queen, W  # type: ignore
 from elbridge.cgraph import CGraph  # type: ignore
 
-
 # typing for heterogenous dictionaries:
 # https://mypy.readthedocs.io/en/latest/more_types.html#typeddict
-Indices = TypedDict('Indices', {
-    'vtd_to_city': Dict[int, str],
-    'vtds_in_city': Dict[str, List[int]],
-    'vtd_to_county': Dict[int, str],
-    'vtds_in_county': Dict[str, List[int]],
-    'vtd_pop': Dict[int, int]
-})  # pylint:disable=invalid-name
+Indices = TypedDict(
+    'Indices', {
+        'vtd_to_city': Dict[int, str],
+        'vtds_in_city': Dict[str, List[int]],
+        'vtd_to_county': Dict[int, str],
+        'vtds_in_county': Dict[str, List[int]],
+        'vtd_pop': Dict[int, int]
+    })  # pylint:disable=invalid-name
 
 
 class Graph:
@@ -26,9 +26,15 @@ class Graph:
     A graph of voting districts (VTDs) intended to be partitioned into
     congressional districts, with equal population and contiguity constraints.
     """
-    def __init__(self, gdf: GeoDataFrame, n_districts: int, contiguity: str,
-                 pop_col: str, city_col: str, county_col: str,
-                 pop_tolerance: float, fusions: List[Callable] = None):
+    def __init__(self,
+                 gdf: GeoDataFrame,
+                 n_districts: int,
+                 contiguity: str,
+                 pop_col: str,
+                 city_col: str,
+                 county_col: str,
+                 pop_tolerance: float,
+                 fusions: List[Callable] = None):
         """
         :param gdf: The GeoDataFrame of VTDs to construct the graph from.
         :param n_districts: The number of districts to be allocated.
@@ -499,7 +505,8 @@ class FusionGraph:
                 fused = fused.union(self._get_children(vtd))
         return list(fused)
 
-    def _get_children(self, vtd_idx: int,
+    def _get_children(self,
+                      vtd_idx: int,
                       discovered: Optional[Set[int]] = None) -> Set[int]:
         """
         Recursively generates the set of VTDs that a VTD is fused with

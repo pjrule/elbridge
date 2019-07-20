@@ -3,6 +3,7 @@ from typing import Dict
 from elbridge import Graph as ElbridgeGraph
 from gerrychain import Graph as GerryGraph
 
+
 def to_gerrychain_graph(el_graph: ElbridgeGraph, cd_col: str) -> GerryGraph:
     base_graph = GerryGraph.from_geodataframe(el_graph.df)
 
