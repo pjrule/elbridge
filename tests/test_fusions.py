@@ -25,8 +25,12 @@ def test_fuse_islands_one_island():
 def test_fuse_islands_two_islands():
     # Create a GeoDataFrame and an adjacency matrix for a map with
     # a mainland (two adjacent VTDs) and two islands (two free-standing VTDs).
-    polys = [box(0, 0, 1, 1),     box(1, 0, 2, 1),
-             box(3, 3, 3.5, 3.5), box(4, 4, 4.5, 4.5)]
+    polys = [
+        box(0, 0, 1, 1),
+        box(1, 0, 2, 1),
+        box(3, 3, 3.5, 3.5),
+        box(4, 4, 4.5, 4.5)
+    ]
     gdf = GeoDataFrame({'geometry': polys})
     adj = Rook.from_dataframe(gdf)
 

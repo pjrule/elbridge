@@ -9,10 +9,14 @@ from elbridge.common import bound
 from elbridge.trim import trim_farthest_city, trim_farthest_vtd
 import matplotlib.pyplot as plt
 
-def stochastic_pop_coords(plan: Plan, r_P: float, theta: float,
+
+def stochastic_pop_coords(plan: Plan,
+                          r_P: float,
+                          theta: float,
                           city_trimmer: Callable = trim_farthest_city,
                           vtd_trimmer: Callable = trim_farthest_vtd,
-                          p_random: float = 0.1, vtd_idx: int = None) -> None:
+                          p_random: float = 0.1,
+                          vtd_idx: int = None) -> None:
     """
     Greedily allocates voting districts to congressional districts using
     population coordinates.
@@ -80,9 +84,8 @@ def stochastic_pop_coords(plan: Plan, r_P: float, theta: float,
         # with the border of the current district.
         # TODO: other than the initial case, does this properly handle the case
         # where the current district has no VTDs? (Is that possible, anyway?)
-        if len(self.graph.current_vtds) == len(self.graph.all_vtds):
-            random_vtds = self.graph.all_vtds
-        else:
+        # FIXME: this doesn't do what the comment above decribes!
+        random_vtds = self.graph.all_vtds
 
         stochastic_pop_coords(plan=plan,
                               r_P=r_P,
@@ -127,7 +130,8 @@ def stochastic_pop_coords(plan: Plan, r_P: float, theta: float,
         # district; thus, the VTD itself cannot possibly be contiguous with the
         # current congressional district. We reject the allocation.
         alloc = np.zeros(len(plan.graph.df))
-        for dist_idx, districts in enumerate(plan.graph.state['vtd_by_district']):
+        for dist_idx, districts in enumerate(
+                plan.graph.state['vtd_by_district']):
             alloc[districts] = dist_idx
         alloc[vtds_in_county] = len(plan.graph.state['vtd_by_district'])
         plan.graph.df['alloc'] = alloc

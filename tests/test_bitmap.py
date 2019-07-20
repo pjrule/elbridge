@@ -9,9 +9,7 @@ from elbridge.bitmap import circle_mask
 from shapely.geometry import box
 
 FIXTURES_DIR = os.path.join(os.path.dirname(__file__), 'fixtures')
-FIXTURE_FILES = {
-    'pa129': os.path.join('pa129', 'pa129.shp')
-}
+FIXTURE_FILES = {'pa129': os.path.join('pa129', 'pa129.shp')}
 
 
 @pytest.fixture(scope='module')
@@ -25,8 +23,10 @@ def grid_2x2():
     }
     pop = [1] * 4  # uniform population density
     polys = [
-        box(0, 0, 1, 1), box(1, 0, 2, 1),
-        box(0, 1, 1, 2), box(1, 1, 2, 2)
+        box(0, 0, 1, 1),
+        box(1, 0, 2, 1),
+        box(0, 1, 1, 2),
+        box(1, 1, 2, 2)
     ]
     gdf = gpd.GeoDataFrame({'pop': pop, 'geometry': polys})
     return Bitmap(gdf, 'pop', 1, 1), meta  # undersample bitmaps (1x1, 1x1)
@@ -140,8 +140,9 @@ def test_update_districts_oversample(grid_5x3):
     for row in range(3):
         for col in range(5):
             # Get the 2x2 square of pixels corresponding to the district
-            frame_dist = frame[(2 * row):(2 * (row + 1)),
-                               (2 * col):(2 * (col + 1))]
+            frame_dist = frame[(2 * row):(2 * (row + 1)), (2 *
+                                                           col):(2 *
+                                                                 (col + 1))]
             # The first unique pixel value shoud be the district number
             assert np.unique(frame_dist)[0] == (5 * row) + col
             # Only one district number should exist within the 2x2 square

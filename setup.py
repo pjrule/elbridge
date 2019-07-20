@@ -14,16 +14,15 @@ if sys.platform == 'darwin':
 
 cgraph_root = os.path.join('elbridge', 'cgraph')
 
-cgraph_module = Extension('elbridge.cgraph',
-                          sources=[os.path.join(cgraph_root, 'cgraph.pyx')],
-                          extra_compile_args=compile_args,
-                          extra_link_args=link_args,
-                          # https://stackoverflow.com/a/14657667
-                          include_dirs=[numpy.get_include()],
-                          language='c++')
+cgraph_module = Extension(
+    'elbridge.cgraph',
+    sources=[os.path.join(cgraph_root, 'cgraph.pyx')],
+    extra_compile_args=compile_args,
+    extra_link_args=link_args,
+    # https://stackoverflow.com/a/14657667
+    include_dirs=[numpy.get_include()],
+    language='c++')
 
-setup(
-    name='elbridge',
-    ext_modules=cythonize(cgraph_module),
-    packages=['elbridge']
-)
+setup(name='elbridge',
+      ext_modules=cythonize(cgraph_module),
+      packages=['elbridge'])

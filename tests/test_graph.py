@@ -25,8 +25,12 @@ def grid_gdf():
             polys.append(box(col, row, col + 1, row + 1))
             cities.append('city{}'.format(row))
             counties.append('county{}'.format(row // 2))
-    return gpd.GeoDataFrame({'pop': pop, 'city': cities,
-                             'county': counties, 'geometry': polys})
+    return gpd.GeoDataFrame({
+        'pop': pop,
+        'city': cities,
+        'county': counties,
+        'geometry': polys
+    })
 
 
 @pytest.fixture
@@ -37,8 +41,13 @@ def grid_8x8(grid_gdf):
         * Tolerance of 6.25% (districts are 32 VTDs +/- 2 VTDs)
         * No fusions
     """
-    return Graph(gdf=grid_gdf, n_districts=2, contiguity='rook', pop_col='pop',
-                 city_col='city', county_col='county', pop_tolerance=2/32)
+    return Graph(gdf=grid_gdf,
+                 n_districts=2,
+                 contiguity='rook',
+                 pop_col='pop',
+                 city_col='city',
+                 county_col='county',
+                 pop_tolerance=2 / 32)
 
 
 @pytest.fixture
@@ -49,9 +58,16 @@ def grid_8x8_one_fusion(grid_gdf):
         * Tolerance of 6.25% (districts are 32 VTDs +/- 2 VTDs)
         * One fusion (forces VTD 0 and VTD 1 to be allocated together)
     """
-    return Graph(gdf=grid_gdf, n_districts=2, contiguity='rook', pop_col='pop',
-                 city_col='city', county_col='county', pop_tolerance=2/32,
-                 fusions=[lambda gdf, adj: {0: 1}]), [0, 1]
+    return Graph(gdf=grid_gdf,
+                 n_districts=2,
+                 contiguity='rook',
+                 pop_col='pop',
+                 city_col='city',
+                 county_col='county',
+                 pop_tolerance=2 / 32,
+                 fusions=[lambda gdf, adj: {
+                     0: 1
+                 }]), [0, 1]
 
 
 @pytest.fixture
@@ -70,8 +86,13 @@ def grid_8x8_two_fusions(grid_gdf):
         """ VTD 1 and VTD 2 must be allocated together. """
         return {1: 2}
 
-    return Graph(gdf=grid_gdf, n_districts=2, contiguity='rook', pop_col='pop',
-                 city_col='city', county_col='county', pop_tolerance=2/32,
+    return Graph(gdf=grid_gdf,
+                 n_districts=2,
+                 contiguity='rook',
+                 pop_col='pop',
+                 city_col='city',
+                 county_col='county',
+                 pop_tolerance=2 / 32,
                  fusions=[f1_0, f1_2]), [0, 1, 2]
 
 
@@ -107,10 +128,14 @@ def test_index_generation(grid_8x8):
 
 def test_init_state(grid_8x8):
     state = grid_8x8._init_state()
-    exp_city = {'city{}'.format(idx):
-                list(range(idx * 8, (idx + 1) * 8)) for idx in range(8)}
-    exp_county = {'county{}'.format(idx):
-                  list(range(idx * 16, (idx + 1) * 16)) for idx in range(4)}
+    exp_city = {
+        'city{}'.format(idx): list(range(idx * 8, (idx + 1) * 8))
+        for idx in range(8)
+    }
+    exp_county = {
+        'county{}'.format(idx): list(range(idx * 16, (idx + 1) * 16))
+        for idx in range(4)
+    }
     assert not state['done']
     assert state['pop_debt'] == 0
     assert state['district'] == 1
@@ -186,8 +211,8 @@ def test_update_enclosed_too_big(grid_8x8):
     assert not grid_8x8.update(list(range(32, 40)))
 
 
-@pytest.mark.parametrize('fused', ['grid_8x8_one_fusion',
-                                   'grid_8x8_two_fusions'])
+@pytest.mark.parametrize('fused',
+                         ['grid_8x8_one_fusion', 'grid_8x8_two_fusions'])
 def test_update_with_fusion(fused, request):
     # We verify that the same allocation occurs for all VTDs in the
     # list of fused VTDs. For instance, if VTD 0 and VTD 1 are always
@@ -203,8 +228,10 @@ def test_update_with_fusion(fused, request):
 
 
 def test_to_dict(grid_8x8, monkeypatch):
-    monkeypatch.setattr(grid_8x8, 'state', {'vtd_by_district':
-                        [list(range(32)), list(range(32, 64))]})
+    monkeypatch.setattr(
+        grid_8x8, 'state',
+        {'vtd_by_district': [list(range(32)),
+                             list(range(32, 64))]})
     district_assignments = grid_8x8.to_dict()
     for vtd_idx, district in district_assignments.items():
         assert district == vtd_idx // 32
