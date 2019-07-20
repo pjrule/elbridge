@@ -7,11 +7,11 @@ before_install:
   - sudo apt-get install -y libspatialindex-dev
 install:
   - pip install -r requirements.txt
-  - pip install mypy flake8
+  - pip install mypy yapf
   - pip install pytest==4.0.2 pytest-cov==2.6.0 codecov
   - pip install -e .
 script:
-  - flake8 elbridge tests setup.py # PEP8
+  - yapf --diff --recursive elbridge tests setup.py # PEP8
   - mypy elbridge # type-checking
   - pytest -v --cov=./ # unit tests
 after_success:
